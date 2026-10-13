@@ -1,0 +1,52 @@
+{
+  "name": "ren-core",
+  "version": "0.1.0",
+  "description": "A renderer-neutral JSX component layer over rrx-core: components, control flow, portable primitives, application roots, contexts, a worker runtime and a template compiler. Renderers: ren-dom, ren-canv, ren-skia, ren-three, ren-html, ren-json.",
+  "type": "module",
+  "private": true,
+  "license": "UNLICENSED",
+  "sideEffects": false,
+  "engines": { "node": ">=22.15" },
+  "files": [
+    "src",
+    "types",
+    "README.md",
+    "loader.mjs",
+    "compiled.mjs"
+  ],
+  "types": "./types/index.d.ts",
+  "exports": {
+    ".": { "types": "./types/index.d.ts", "default": "./src/index.js" },
+    "./host": { "types": "./types/host.d.ts", "default": "./src/host.js" },
+    "./worker": { "types": "./types/worker.d.ts", "default": "./src/worker.js" },
+    "./remote": { "types": "./types/remote.d.ts", "default": "./src/remote.js" },
+    "./esbuild": { "types": "./types/esbuild.d.ts", "default": "./src/esbuild.js" },
+    "./loader": "./loader.mjs",
+    "./compiled": "./compiled.mjs",
+    "./jsx-runtime": { "types": "./types/jsx-runtime.d.ts", "default": "./src/jsx-runtime.js" },
+    "./jsx-dev-runtime": { "types": "./types/jsx-dev-runtime.d.ts", "default": "./src/jsx-dev-runtime.js" }
+  },
+  "scripts": {
+    "types": "node scripts/types.mjs",
+    "check": "tsc -p tsconfig.json",
+    "test": "node scripts/types.mjs && tsc -p tsconfig.json && tsc -p test/types/tsconfig.json && node --import ren-core/loader --test test/*.test.js test/*.test.jsx && node --import ren-core/compiled --test test/*.test.jsx",
+    "prepare": "node scripts/types.mjs",
+    "prepack": "node scripts/types.mjs"
+  },
+  "dependencies": {
+    "rrx-core": "file:../../../rrx-core/wtree/_repo_"
+  },
+  "peerDependencies": {
+    "esbuild": ">=0.25"
+  },
+  "peerDependenciesMeta": {
+    "esbuild": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "happy-dom": "20.14.5",
+    "typescript": "7.0.2"
+  }
+}
