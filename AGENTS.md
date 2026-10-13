@@ -2,7 +2,7 @@
 
 Standing rules for agents working in this checkout.
 
-Read the workspace layer first: `../../../AGENTS.md` and `../../../.ai/config/`
+Read the workspace layer first: [`../../../AGENTS.md`](https://github.com/wiltonlazary/rui/blob/main/AGENTS.md) and [`../../../.ai/config/`](https://github.com/wiltonlazary/rui/tree/main/.ai/config)
 (javascript.md, design.md, benchmarks.md, concepts.md, resources.md,
 stability.md, git.md).
 Then read [README.md](README.md) for the API, the Host contract, worker
@@ -20,7 +20,7 @@ projects: ren-dom ($dom, $shadow), ren-canv (the drawn renderers' engine),
 ren-skia (CanvasKit), ren-three (three.js), ren-html (HTML once) and
 ren-json (data once). ren-core imports none of them; its own tests run on an in-memory
 Host. Its one runtime dependency is rrx-core, the reactive core, linked from the
-sibling checkout `../../../rrx-core/wtree/_repo_`
+sibling checkout [`../../../rrx-core/wtree/_repo_`](https://github.com/wiltonlazary/rrx-core)
 (`"rrx-core": "file:../../../rrx-core/wtree/_repo_"`).
 
 ## Layout and outputs
@@ -51,5 +51,5 @@ sibling checkout `../../../rrx-core/wtree/_repo_`
 - The TypeScript consumers in `test/types/` compile with
   `jsxImportSource: "ren-core"`.
 - Keep batching, lanes and QoS (overtaking, answers behind a held message,
-  the shared mailbox) measured in [ren-bench's UI suite](../../../ren-bench/wtree/_repo_/bench/ui/README.md).
+  the shared mailbox) measured in [ren-bench's UI suite](https://github.com/wiltonlazary/ren-bench/blob/main/bench/ui/README.md).
 - Keep isolation between roots exactly as README §Application roots states.

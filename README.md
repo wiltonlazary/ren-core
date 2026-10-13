@@ -1,6 +1,6 @@
 # ren-core
 
-A renderer-neutral JSX component layer over [rrx-core](../../../rrx-core/wtree/_repo_):
+A renderer-neutral JSX component layer over [rrx-core](https://github.com/wiltonlazary/rrx-core):
 components, control flow, portable primitives, application roots, contexts,
 background disposal, a worker runtime (the application in a Worker, the
 renderer on the main thread) and a build-time template compiler. Plain
@@ -12,12 +12,12 @@ one page (one per application root):
 
 | Package | Renderer |
 | --- | --- |
-| [ren-dom](../../../ren-dom/wtree/_repo_) | `$dom` (light DOM) and `$shadow` (a shadow root): fine-grained DOM, event delegation, cloned templates |
-| [ren-canv](../../../ren-canv/wtree/_repo_) | the drawn renderers' engine: a retained scene of the portable primitives with its own layout, text, paint commands, damage, hit testing, input, editing, native text entry and accessibility mirror; ren-skia and ren-three replay its frames |
-| [ren-skia](../../../ren-skia/wtree/_repo_) | `$skia`: ren-canv's engine replayed on a CanvasKit canvas |
-| [ren-three](../../../ren-three/wtree/_repo_) | `$three`: a three.js scene graph, raycast events, on-demand frames and `$animate`, and the portable primitives through ren-canv |
-| [ren-html](../../../ren-html/wtree/_repo_) | `$html`: a view rendered once to HTML, ren-dom's markup, for servers and static pages |
-| [ren-json](../../../ren-json/wtree/_repo_) | `$json`: a view rendered once to what it means, as data (nodes by ARIA role, microdata items; the visual hierarchy dissolved) |
+| [ren-dom](https://github.com/wiltonlazary/ren-dom) | `$dom` (light DOM) and `$shadow` (a shadow root): fine-grained DOM, event delegation, cloned templates |
+| [ren-canv](https://github.com/wiltonlazary/ren-canv) | the drawn renderers' engine: a retained scene of the portable primitives with its own layout, text, paint commands, damage, hit testing, input, editing, native text entry and accessibility mirror; ren-skia and ren-three replay its frames |
+| [ren-skia](https://github.com/wiltonlazary/ren-skia) | `$skia`: ren-canv's engine replayed on a CanvasKit canvas |
+| [ren-three](https://github.com/wiltonlazary/ren-three) | `$three`: a three.js scene graph, raycast events, on-demand frames and `$animate`, and the portable primitives through ren-canv |
+| [ren-html](https://github.com/wiltonlazary/ren-html) | `$html`: a view rendered once to HTML, ren-dom's markup, for servers and static pages |
+| [ren-json](https://github.com/wiltonlazary/ren-json) | `$json`: a view rendered once to what it means, as data (nodes by ARIA role, microdata items; the visual hierarchy dissolved) |
 
 The package is named `ren-core`, and `package.json` is
 `private`. Its one runtime dependency is rrx-core. `esbuild` is an optional peer
@@ -803,7 +803,7 @@ thread reads the slot in its next animation frames and applies from views
 over the shared memory, so the answer shows in that frame. The bell applies
 it otherwise, and a message with structured values (style objects, template
 plans) or one that does not fit (4 MB) goes by message. Measured in
-[ren-bench UI](../../../ren-bench/wtree/_repo_/bench/ui/README.md) (idle typing, Chrome 153, load 5–6.5, two runs): keystroke to the
+[ren-bench UI](https://github.com/wiltonlazary/ren-bench/blob/main/bench/ui/README.md) (idle typing, Chrome 153, load 5–6.5, two runs): keystroke to the
 frame that shows it, p50 / p95, DOM 26.4 / 33.0 and 26.5 / 33.3 ms by message
 against 9.5 / 17.4 and 10.9 / 17.6 ms with the mailbox (direct DOM: 9.7 /
 16.6 and 7.7 / 14.9); Skia 24.5 / 32.9 and 25.0 / 32.8 against 12.0 / 18.4 and
@@ -1134,10 +1134,10 @@ npm test           # declarations, tsc --checkJs --strict, the TypeScript consum
 ## Benchmarks
 
 Benchmark harnesses and recorded measurements live in
-[ren-bench](../../../ren-bench/wtree/_repo_/README.md). Its
-[UI suite](../../../ren-bench/wtree/_repo_/bench/ui/README.md) measures the worker
+[ren-bench](https://github.com/wiltonlazary/ren-bench). Its
+[UI suite](https://github.com/wiltonlazary/ren-bench/blob/main/bench/ui/README.md) measures the worker
 runtime, scheduling, disposal and row cost through this package's public entries.
-The [market suite](../../../ren-bench/wtree/_repo_/bench/market/README.md) compares
+The [market suite](https://github.com/wiltonlazary/ren-bench/blob/main/bench/market/README.md) compares
 the DOM renderer against other UI libraries. Run benchmark commands from ren-bench.
 
 ## Design choices
@@ -1147,7 +1147,7 @@ Deliberate choices, their alternatives, and their measured effect.
 1. **Large drops retire; small ones stop.** A list clear or no-survivor
    replace, or a content swap, that drops a list of at least 1000 rows
    retires it (rrx-core `$retire`) instead of stopping it; smaller drops stop at
-   once. [ren-bench UI/dispose.mjs](../../../ren-bench/wtree/_repo_/bench/ui/dispose.mjs) (node v24.15.0, market rows, 10 ABBA pairs,
+   once. [ren-bench UI/dispose.mjs](https://github.com/wiltonlazary/ren-bench/blob/main/bench/ui/dispose.mjs) (node v24.15.0, market rows, 10 ABBA pairs,
    load 3.6): the clear's blocking time, stop against retire, is 0.024
    against 0.028 ms at 100 rows (retire not faster, 3/10 pairs), 0.044
    against 0.025 at 300, 0.136 against 0.044 at 1,000, 0.514 against 0.095
@@ -1166,14 +1166,14 @@ Deliberate choices, their alternatives, and their measured effect.
 3. **Pacing by the environment.** Idle callbacks on a main thread, a slice
    after the frame without them, macrotask slices in a worker; 4 ms slices,
    halved after a late frame, and a `$flush` after each. Measured in
-   [ren-bench UI](../../../ren-bench/wtree/_repo_/bench/ui/README.md): no dropped frame while 10,000 rows (and 100,000
+   [ren-bench UI](https://github.com/wiltonlazary/ren-bench/blob/main/bench/ui/README.md): no dropped frame while 10,000 rows (and 100,000
    memo/effect/cleanup triples) are freed under typing, and the drain
    finishes 1.5–4 times sooner than with rrx-core's default 4 ms `setTimeout`
    slices.
 4. **A compiled template lowercases its event names once, in the plan.**
    An `on<Name>` part is an event op that carries the event's name, instead
    of a property op whose name each instance slices and lowercases.
-   [ren-bench UI/rows.mjs](../../../ren-bench/wtree/_repo_/bench/ui/rows.mjs) (node, market rows compiled, ABBA against the property op
+   [ren-bench UI/rows.mjs](https://github.com/wiltonlazary/ren-bench/blob/main/bench/ui/rows.mjs) (node, market rows compiled, ABBA against the property op
    sliced per instance, 30 and 60 pairs): create 1,000 rows −4.6% (16/30),
    −6.8% (40/60), −5.9% (41/60).
 5. **Measured and not taken** (same harness, 30–60 ABBA pairs):
