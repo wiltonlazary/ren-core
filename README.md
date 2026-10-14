@@ -19,8 +19,8 @@ one page (one per application root):
 | [ren-html](https://github.com/wiltonlazary/ren-html) | `$html`: a view rendered once to HTML, ren-dom's markup, for servers and static pages |
 | [ren-json](https://github.com/wiltonlazary/ren-json) | `$json`: a view rendered once to what it means, as data (nodes by ARIA role, microdata items; the visual hierarchy dissolved) |
 
-The package is named `ren-core`, and `package.json` is
-`private`. Its one runtime dependency is rrx-core. `esbuild` is an optional peer
+The package is published on npm as `@maxenve/ren-core` under the MIT license;
+install it under its import name: `npm install ren-core@npm:@maxenve/ren-core`. Its one runtime dependency is rrx-core. `esbuild` is an optional peer
 of `ren-core/esbuild`, `ren-core/loader` and `ren-core/compiled`.
 
 | Entry | Contents |
@@ -39,8 +39,8 @@ symlink, so both projects are worked on together). ren-core imports `rrx-core`,
 `ren-core`, which re-exports `rrx-core`, or from `rrx-core` directly (the same module).
 Install rrx-core first: its `prepare` script generates the declarations that
 ren-core's `tsc` checks read. To use a published rrx-core instead, replace the link with
-a version (`npm install rrx-core@0.1.0 --save-exact`, or edit the dependency to
-`"rrx-core": "0.1.0"` and run `npm install`); nothing else changes, since the
+a version (`npm install rrx-core@npm:@maxenve/rrx-core@0.1.0 --save-exact`, or edit the
+dependency to `"rrx-core": "npm:@maxenve/rrx-core@0.1.0"` and run `npm install`); nothing else changes, since the
 imports use the package name.
 
 ## Components and JSX
