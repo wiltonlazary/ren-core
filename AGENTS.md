@@ -28,7 +28,7 @@ sibling checkout [`../../../rrx-core/wtree/_repo_`](https://github.com/wiltonlaz
 - Checkout: `wtree/_repo_` (branch `main`); feature branches are sibling
   worktrees under `wtree/<name>`, each with its own build directory
   `build/<name>_<version>` and its own `artifact` link to it.
-- Build output: `build/_repo__0.1.0`, reached through the ignored `artifact`
+- Build output: `build/_repo__0.1.1`, reached through the ignored `artifact`
   link for library scratch (`artifact/tmp/<task>/`). Benchmark bundles and
   Chrome profiles belong to ren-bench's artifact directory.
 - `types/` is generated (`scripts/types.mjs`) and ignored; the package's
@@ -39,7 +39,7 @@ sibling checkout [`../../../rrx-core/wtree/_repo_`](https://github.com/wiltonlaz
 - ren-core consumes rrx-core's public entries only (`rrx-core`, `rrx-core/core`, `rrx-core/context`).
   When ren-core needs something new from rrx-core, change rrx-core in its own checkout,
   with rrx-core's tests, rather than reaching into its files.
-  To move to a registry version, replace the link with `"rrx-core": "0.1.0"` and
+  To move to a registry version, replace the link with `"rrx-core": "npm:@maxenve/rrx-core@0.1.1"` and
   reinstall.
 - Install rrx-core first: ren-core's `tsc` reads rrx-core's generated declarations.
 - A change to ren-core (above all to the Host contract, `mount`, `skeleton` or
