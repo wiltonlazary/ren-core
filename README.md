@@ -40,8 +40,8 @@ symlink, so both projects are worked on together). ren-core imports `rrx-core`,
 `ren-core`, which re-exports `rrx-core`, or from `rrx-core` directly (the same module).
 Install rrx-core first: its `prepare` script generates the declarations that
 ren-core's `tsc` checks read. To use a published rrx-core instead, replace the link with
-a version (`npm install rrx-core@npm:@maxenve/rrx-core@0.1.2 --save-exact`, or edit the
-dependency to `"rrx-core": "npm:@maxenve/rrx-core@0.1.2"` and run `npm install`); nothing else changes, since the
+a version (`npm install rrx-core@npm:@maxenve/rrx-core@0.1.3 --save-exact`, or edit the
+dependency to `"rrx-core": "npm:@maxenve/rrx-core@0.1.3"` and run `npm install`); nothing else changes, since the
 imports use the package name.
 
 ## Components and JSX
