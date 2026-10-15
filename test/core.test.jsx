@@ -37,6 +37,38 @@ describe('ren-core without a renderer package', () => {
     assert.equal(box.children.length, 0);
   });
 
+  it('binds a ref that writes state in a For row as in a thunk child: keyed, by position, a static each, a row added later', () => {
+    const H = Tree();
+    const R = Root('main');
+    /** A component whose ref writes a signal of its own, and shows what it holds. */
+    const Anchored = () => {
+      const anchor = $signal($active(), /** @type {any} */ (null));
+      const node = $signal($active(), /** @type {any} */ (null));
+      return (
+        <p ref={(/** @type {any} */ n) => $write(anchor, n)}>
+          <b ref={node} />
+          {() => ($read(anchor) !== null && $read(node) !== null ? 'set' : 'unset')}
+        </p>
+      );
+    };
+    const items = $signal(R, [1]);
+    const box = H.element('box', null);
+    const dispose = mount(H, () => (
+      <list>
+        <For each={items}>{() => <Anchored />}</For>
+        <For each={items} by="position">{() => <Anchored />}</For>
+        <For each={[1]}>{() => <Anchored />}</For>
+        {() => <Anchored />}
+      </list>
+    ), box, { root: R });
+    $flush(R);
+    assert.equal(text(box), 'setsetsetset');
+    $write(items, [1, 2]);
+    $flush(R);
+    assert.equal(text(box), 'setsetsetsetsetset', 'rows added later bind theirs too');
+    dispose();
+  });
+
   it('gives the parts a child shows, reactively: For rows, a Show showing nothing skipped, accessors and nested arrays opened', () => {
     const H = Tree();
     const R = Root('main');

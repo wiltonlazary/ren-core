@@ -201,7 +201,9 @@ const dispose = render(() => <App />, document.getElementById('app'), { root });
   condition holds, or `fallback`), `For` (keyed: `by` extracts the identity,
   the item itself by default; rows move instead of being rebuilt;
   `by="position"` keeps each position's row, its item accessor following
-  the value there and its index a plain number), `Times` (`count` rows,
+  the value there and its index a plain number; a row is built as a thunk
+  child's content is, so it may write state: a `ref` that writes a signal,
+  a component's own signals), `Times` (`count` rows,
   `children(i)` with a plain number; rows added and removed at the end, no
   diffing), `Render` (the component `of` names, chosen at run time),
   `Portal` (into `into` or the host's portal layer), `Pending` (shows its

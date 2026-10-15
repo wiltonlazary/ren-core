@@ -18,7 +18,7 @@ import {
   $retire, $discard, $watch, $release,
 } from 'rrx-core';
 import { Layer } from 'rrx-core/context';
-import { waitedOn, $bind, Application, $cancel, suspend, peeked, peekCount, development, counted, diagnose } from 'rrx-core/core';
+import { waitedOn, $bind, Application, $cancel, suspend, peeked, peekCount, development, counted, diagnose, lift } from 'rrx-core/core';
 import { base } from './context.js';
 import { Pace, Eager, RETIRE, modeOf } from './sweep.js';
 
@@ -2424,7 +2424,8 @@ function row(R, H, render, item, index) {
   active = R;
   host = H;
   try {
-    return range(R, H, waited(R, 'a For row', render, item, index === null ? undefined : index));
+    // A row is built as a thunk child's content is: it may write state (a ref, a component's own signals).
+    return lift(R, () => range(R, H, waited(R, 'a For row', render, item, index === null ? undefined : index)));
   } finally {
     active = a;
     host = h;
@@ -2443,7 +2444,7 @@ function positional(props) {
   const each = props.each;
   const render = props.children;
   /** @param {any} item @param {any} index */
-  const build = (item, index) => within(R, H, () => range(R, H, waited(R, 'a positional For row', render, () => $read(item), $untrack(R, () => $read(index)))));
+  const build = (item, index) => within(R, H, () => lift(R, () => range(R, H, waited(R, 'a positional For row', render, () => $read(item), $untrack(R, () => $read(index))))));
   return new List(R, items(R, each), undefined, (read, removal) => $positions(R, read, build, removal), each, props.fallback);
 }
 
