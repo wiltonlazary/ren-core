@@ -184,6 +184,7 @@ function gradient(value) {
  * @property {readonly [Length, Length]=} translate A move [x, y] (px, or a percent of its own size), as CSS's `translate`.
  * @property {readonly [Length, Length]=} transformOrigin What it scales and rotates about [x, y] (px, or a percent of its size; the center by default).
  * @property {string=} cursor The pointer's cursor over the item, a CSS cursor name ('pointer', 'text', 'grab', 'ns-resize', …).
+ * @property {boolean | 'inner' | 'outer'=} ring Its keyboard focus ring: drawn on itself by default; `false` hands it on, to the items inside it marked `'outer'` (a check's box inside its pressable row) or, with none, to the nearest item around it marked `'inner'` (a field's box around its entry), each drawing it along its own corners.
  * @property {'auto' | 'thin' | 'none'=} scrollbarWidth A Scroll's bars, as CSS's scrollbar-width: 'auto' the theme's bar (default), 'thin' half as wide, 'none' no bar and no room kept for one (it still scrolls). Not inherited.
  * @property {readonly [number | string, number | string] | 'auto'=} scrollbarColor A Scroll's bars' colors, [thumb, track], as CSS's scrollbar-color; inherited, as CSS's ('auto': the theme's muted thumb on its soft track).
  * @property {StyleInput=} hover The style while the pointer is over the item.
@@ -237,7 +238,7 @@ export const PORTABLE = new Set([
   'display', 'columnGap', 'rowGap', 'columns', 'rows', 'column', 'row', 'direction', 'wrap', 'gap', 'padding', 'margin', 'width', 'height', 'minWidth', 'maxWidth', 'minHeight', 'maxHeight', 'aspectRatio',
   'position', 'top', 'right', 'bottom', 'left', 'inset', 'zIndex', 'grow', 'shrink', 'align', 'self', 'justify', 'overflow', 'background', 'color', 'opacity', 'border', 'borderColor',
   'borderTop', 'borderRight', 'borderBottom', 'borderLeft', 'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor', 'borderStyle',
-  'placeholderColor', 'radius', 'shadow', 'fontSize', 'fontWeight', 'fontFamily', 'italic', 'textAlign', 'lineHeight', 'underline', 'strike', 'select', 'textTransform', 'touchAction', 'pointerEvents', 'objectFit', 'cursor', 'hover', 'press', 'focus',
+  'placeholderColor', 'radius', 'shadow', 'fontSize', 'fontWeight', 'fontFamily', 'italic', 'textAlign', 'lineHeight', 'underline', 'strike', 'select', 'textTransform', 'touchAction', 'pointerEvents', 'objectFit', 'cursor', 'ring', 'hover', 'press', 'focus',
   'scrollbarWidth', 'scrollbarColor', 'scale', 'rotate', 'skewX', 'skewY', 'translate', 'transformOrigin',
 ]);
 
@@ -361,6 +362,8 @@ export class Style {
     this.objectFit = -1;
     /** A CSS cursor name; null unset. @type {string | null} */
     this.cursor = null;
+    /** Its focus ring: 0 handed on (false), 1 its own (true), 2 inner (an inner item's), 3 outer (the focused item's around it); -1 unset (its own). */
+    this.ring = -1;
     /** A Scroll's bars: 0 auto, 1 thin, 2 none; -1 unset. */
     this.scrollbarWidth = -1;
     /** Its bars' thumb and track colors (ARGB); null unset (inherited). @type {number | null} */
@@ -652,6 +655,9 @@ export function styled(value) {
       }
       case 'cursor':
         s.cursor = typeof x === 'string' && x !== '' ? x : null;
+        break;
+      case 'ring':
+        s.ring = x === false ? 0 : x === true ? 1 : x === 'inner' ? 2 : x === 'outer' ? 3 : -1;
         break;
       case 'scrollbarWidth':
         s.scrollbarWidth = pick(SCROLLBARS, x);

@@ -233,6 +233,8 @@ export type Style = {
   transformOrigin?: readonly [Length, Length];
   /** The pointer's cursor over the item, a CSS cursor name. */
   cursor?: string;
+  /** Its keyboard focus ring: its own by default; `false` hands it on to the items inside it marked `'outer'` or, with none, to the nearest item around it marked `'inner'`, each drawing it along its own corners. */
+  ring?: boolean | 'inner' | 'outer';
   /** A Scroll's bars, as CSS's scrollbar-width: 'auto' the theme's bar (default), 'thin' half as wide, 'none' no bar and no room kept for one (it still scrolls). Not inherited. */
   scrollbarWidth?: 'auto' | 'thin' | 'none';
   /** A Scroll's bars' colors, [thumb, track], as CSS's scrollbar-color; inherited ('auto': the theme's). */

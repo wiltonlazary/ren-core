@@ -582,7 +582,13 @@ const dispose = render(() => <App />, document.getElementById('app'), { root });
   padding, sizes, placement, transforms, opacity, clip) does nothing, while
   text style, its meaning and events pass through it as an ancestor's; on
   the canvases its `getBoundingClientRect()` is empty, at its parent's
-  corner)
+  corner), `ring` (its keyboard focus ring, drawn along its corners: its
+  own by default; `false` hands it on, to the items inside it marked
+  `'outer'`, as a check's box inside its pressable row, or, with none, to
+  the nearest item around it marked `'inner'`, as a field's box around its
+  entry;
+  an Edit's ring shows whenever it has the focus, an Action's or a
+  region's when the keyboard gave it, as the DOM's `:focus-visible`)
   and the states `hover`, `press` and `focus`. Every primitive is
   positioned, so an absolute item is placed against its parent's padding
   box, and everything paints in tree order except stacking contexts: an
