@@ -9,6 +9,8 @@
 export { mount, skeleton, Plan, $surface, $active } from './core.js';
 export { Theme, COLORS, UNITLESS } from './theme.js';
 export { Style, styled, overlay, argb, PORTABLE } from './style.js';
+// How a root behaves under the user's hands (an app or a page), resolved to its switches.
+export { behaviorOf } from './behavior.js';
 // What Tab reaches inside a DOM element (ren-dom's focus trap cycles among them).
 export { focusables } from './focus.js';
 /** @typedef {import('./style.js').Gradient} Gradient */
@@ -18,4 +20,6 @@ export { development, diagnose } from 'rrx-core/core';
 /** @typedef {import('./core.js').Host} Host */
 /** @typedef {import('./core.js').Options} Options */
 /** @typedef {import('./theme.js').Tokens} Tokens */
+/** @typedef {import('./behavior.js').Behavior} Behavior */
+/** @typedef {import('./behavior.js').Switches} Switches */
 /** @typedef {import('./style.js').StyleInput} StyleInput */

@@ -1021,6 +1021,17 @@ and styles cannot interfere. Each package's README lists its options:
 ren-dom (`$dom`, `$shadow`), ren-skia (`$skia`), ren-three (`$three`) and
 ren-json (`$tree`).
 
+**App or page.** Every renderer takes a `behavior` option (`behaviorOf` in
+`ren-core/host` resolves it, so all read the same switches). `'app'`, the
+default, behaves as an application: loose text is not selectable and shows
+no I-beam, Ctrl or Cmd+A selects only inside an Edit or an element with the
+style `select: 'text'`, the browser's context menu shows only in an Edit, and
+touch shows no long-press callout or tap highlight. `'page'` behaves as a web
+page. `{ like, …switches }` sets one of them as the default and overrides a
+part: `select`, `selectAll`, `textCursor`, `menu`, `editMenu`, `callout`
+(`{ like: 'app', select: true }`: an app whose text can be selected). On one
+element, the style `select` and `prevent="contextmenu"` still decide.
+
 **Isolation guarantees.**
 
 - Graphs: each root is its own rrx-core graph; a write in one never marks, runs

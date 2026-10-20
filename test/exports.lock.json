@@ -150,6 +150,7 @@
     "Theme": "class",
     "UNITLESS": "object",
     "argb": "function",
+    "behaviorOf": "function",
     "development": "function",
     "diagnose": "function",
     "focusables": "function",

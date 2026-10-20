@@ -172,7 +172,7 @@ function gradient(value) {
  * @property {number=} lineHeight A multiple of the font size.
  * @property {boolean=} underline
  * @property {boolean=} strike A line through the text (CSS's line-through); it reaches the text below, as a decoration.
- * @property {'text' | 'none'=} select Whether a Label's text can be selected.
+ * @property {'text' | 'none'=} select Whether the text inside can be selected: 'text' opts it in, 'none' out; unset, it follows the parent, and at the root the renderer's `behavior` (an app's loose text is not selectable, a page's is).
  * @property {'fill' | 'contain' | 'cover' | 'none'=} objectFit How an Image fits its box, as CSS's object-fit ('fill' by default: stretched).
  * @property {TouchAction=} touchAction The pans and zoom a touch pressed on the item (or under it) leaves to the browser, as CSS's touch-action: the item's and each ancestor's that sets one allow it together ('auto' all, 'none' nothing, 'manipulation' all three of 'pan-x', 'pan-y', 'pinch-zoom'). Set nowhere on the path, the renderer's default holds (a canvas keeps the page from panning under a touch its items took).
  * @property {'none' | 'uppercase' | 'lowercase' | 'capitalize'=} textTransform How text shows, as CSS's text-transform; it inherits, but an Action and an Edit take only their own, as a browser's form controls do, and an Edit shows its value as typed. The text given stays the data (ren-json reads it); a selection copies what shows, as Chrome copies it.
