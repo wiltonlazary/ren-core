@@ -29,7 +29,7 @@ import { Pace, Eager, RETIRE, modeOf } from './sweep.js';
  * @property {(text: string) => any} text A text node.
  * @property {(node: any, text: string) => void} content Replaces a text node's text.
  * @property {(node: any, name: string, value: any, previous: any) => void} set Applies a property.
- * @property {(node: any, name: string, handler: (event: any) => void) => (() => void) | null} listen Adds an event handler; returns its removal, or null when the node holds the handler for a delegated dispatch (it goes with the node; `unlisten` drops it earlier). The name `keys` on the container a view renders into (`$keys`) hears every key pressed in its application root, after the focused item's own handlers (as a document's keydown listener hears it last), and when nothing in it has focus; its key event's `editable` is true when the key's target is a text field. The name `scrolls` there (`$scrolls`) hears every scroll that can move the root's items (a Scroll in it, the page, on the DOM an element around the container). The name `move` on a primitive's node (`$moves`) hears its border box change place in its surface (`{ x, y }` as getBoundingClientRect's, after each change from where it was when the listening started), whatever moved it.
+ * @property {(node: any, name: string, handler: (event: any) => void) => (() => void) | null} listen Adds an event handler; returns its removal, or null when the node holds the handler for a delegated dispatch (it goes with the node; `unlisten` drops it earlier). The name `keys` on the container a view renders into (`$keys`) hears every key pressed in its application root, after the focused item's own handlers (as a document's keydown listener hears it last), and when nothing in it has focus; its key event's `editable` is true when the key's target is a text field. The name `scrolls` there (`$scrolls`) hears every scroll that can move the root's items (a Scroll in it, the page, on the DOM an element around the container). The name `presses` there (`$presses`) hears every pointer press in the root, its portals too, after the pressed item and its ancestors heard it. The name `move` on a primitive's node (`$moves`) hears its border box change place in its surface (`{ x, y }` as getBoundingClientRect's, after each change from where it was when the listening started), whatever moved it.
  * @property {((node: any, name: string, handler: (event: any) => void, runner: { run: (handler: (event: any) => void, event: any) => void }) => boolean)=} delegate Keeps a handler and its runner on the node for a delegated dispatch, which calls `runner.run(handler, event)`; false when the host cannot delegate this one (ren-core then listens).
  * @property {((node: any, name: string) => void)=} unlisten Drops a handler `listen` delegated (returned null for).
  * @property {((target: any) => () => void)=} attach Makes `target` (a container views render into) a delegation root: one listener per delegated event type there; returns the detach, which removes them.
@@ -2765,6 +2765,20 @@ export function $scrolls(handler) {
 }
 
 /**
+ * Hears every pointer press anywhere in the running application root, its
+ * portals too (a menu over any text, a dialog's included), after the
+ * pressed item and its ancestors heard it: a handler's `stopPropagation`
+ * keeps it from here. The event is the pointerdown's (`button`,
+ * `pointerType`, `target`, the point), and its `preventDefault` keeps the
+ * press's own action. Runs and is removed as `$keys`'s handler.
+ * @param {(event: any) => void} handler
+ * @returns {() => void}
+ */
+export function $presses(handler) {
+  return rootwide('presses', handler);
+}
+
+/**
  * Hears every move of a node's border box in its surface while the
  * caller's owner lives, whatever moved it: a scroll, a layout shift (the
  * content above it growing), a transform or an animation.
@@ -2831,7 +2845,7 @@ export function $resizes(node, handler) {
 
 /**
  * Listens on the running root's first view's container for a root-wide
- * event (`keys`, `scrolls`) while the caller's owner lives.
+ * event (`keys`, `scrolls`, `presses`) while the caller's owner lives.
  * @param {string} name @param {(event: any) => void} handler
  * @returns {() => void}
  */

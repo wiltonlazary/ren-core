@@ -3,7 +3,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { Root, $signal, $write, $read, $flush, $dispose, $stats, $viewport, $media, $keys, $scrolls, $moves, $resizes, Show, View } from 'ren-core';
+import { Root, $signal, $write, $read, $flush, $dispose, $stats, $viewport, $media, $keys, $scrolls, $presses, $moves, $resizes, Show, View } from 'ren-core';
 import { mount } from 'ren-core/host';
 import { serve } from 'ren-core/worker';
 import { connect } from 'ren-core/remote';
@@ -192,6 +192,7 @@ describe('ren-core $viewport and $media', () => {
       ['$media', () => void $read($media('(min-width: 48em)'))],
       ['$keys', () => void $keys(() => {})],
       ['$scrolls', () => void $scrolls(() => {})],
+      ['$presses', () => void $presses(() => {})],
       ['$moves', node => void $moves(node, () => {})],
       ['$resizes', node => void $resizes(node, () => {})],
     ];

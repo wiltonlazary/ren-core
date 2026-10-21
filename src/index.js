@@ -11,7 +11,7 @@
 // operation stays available).
 export * from 'rrx-core';
 export {
-  jsx, jsxs, Fragment, Lazy, $active, $surface, $keys, $scrolls, $moves, $resizes, $parts, read,
+  jsx, jsxs, Fragment, Lazy, $active, $surface, $keys, $scrolls, $presses, $moves, $resizes, $parts, read,
   Show, When, Choose, For, Times, Render, Portal, Pending, Recover, Sequence,
   View, Layout, Scroll, Label, Edit, Action, Image, Shape,
 } from './core.js';

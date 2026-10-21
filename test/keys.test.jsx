@@ -6,7 +6,7 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { Root, $signal, $write, $read, $flush, $dispose, $owner, $active, $cleanups, $keys, $scrolls, $moves, $resizes, Show, View } from 'ren-core';
+import { Root, $signal, $write, $read, $flush, $dispose, $owner, $active, $cleanups, $keys, $scrolls, $presses, $moves, $resizes, Show, View } from 'ren-core';
 import { mount } from 'ren-core/host';
 import { serve } from 'ren-core/worker';
 import { connect } from 'ren-core/remote';
@@ -33,6 +33,27 @@ describe('ren-core $keys', () => {
     assert.equal(text(box), 'K');
     $write(open, false);
     assert.equal(box.on.keys, undefined, 'removed with its owner');
+    dispose();
+  });
+
+  it('hears the presses of the root through its container, while its owner lives', () => {
+    const H = Tree();
+    const R = Root('main');
+    const open = $signal(R, true);
+    /** @type {number[]} */
+    const heard = [];
+    const Menu = () => {
+      $presses(e => heard.push(e.button));
+      return <View />;
+    };
+    const box = H.element('box', null);
+    const dispose = mount(H, () => <View><Show when={open}><Menu /></Show></View>, box, { root: R });
+    assert.equal(typeof box.on.presses, 'function', 'the container hears the root');
+    box.on.presses({ button: 2 });
+    box.on.presses({ button: 0 });
+    assert.deepEqual(heard, [2, 0]);
+    $write(open, false);
+    assert.equal(box.on.presses, undefined, 'removed with its owner');
     dispose();
   });
 

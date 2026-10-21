@@ -394,6 +394,13 @@ const dispose = render(() => <App />, document.getElementById('app'), { root });
   of every frame. It is removed as `$keys`'s handler is; in worker mode
   scrolls cross as events, merged within a burst. The Host hears it as
   `listen(container, 'scrolls', handler)`.
+- **Root-wide presses.** `$presses(handler)`, called in a component,
+  hears every pointer press in its application root, its portals too (a
+  menu over any text, a dialog's included), after the pressed item and its
+  ancestors heard it: their `stopPropagation` keeps it from here. The event
+  is the pointerdown's (`button`, `pointerType`, `target`, the point). It is
+  removed as `$keys`'s handler is. The Host hears it as `listen(container,
+  'presses', handler)`.
 - **Moves.** `$moves(node, handler)`, called in a component with a
   primitive's node (a ref) of its root's host, hears that node's border box
   change place in its surface, whatever moved it: a scroll, a layout shift
