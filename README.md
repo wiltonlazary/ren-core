@@ -1032,6 +1032,18 @@ part: `select`, `selectAll`, `textCursor`, `menu`, `editMenu`, `callout`
 (`{ like: 'app', select: true }`: an app whose text can be selected). On one
 element, the style `select` and `prevent="contextmenu"` still decide.
 
+**Text actions.** What an application's own menus do to text, the same on
+every renderer: `editOf(ref)` gives an Edit's actions (`value`,
+`selection`, `setSelection`, `replace` as a user's edit that onChange hears
+and undo keeps, `selectAll`, `undo`, `redo`, `canUndo`, `canRedo`, `focus`,
+and `secret`, `readOnly`, `disabled`); `textAt(event)` the static text under
+a pointer event (`{ node, text }`); `selectText(node)` opens selection on
+that one text and selects it all, until a press elsewhere or Escape;
+`selectedText(node)` the text selected now. A renderer gives them under
+`EDIT` (on an Edit's ref) and `TEXT` (on the root its nodes belong to),
+from `ren-core/host`. A worker's Handle has neither: there each gives null
+(or '').
+
 **Isolation guarantees.**
 
 - Graphs: each root is its own rrx-core graph; a write in one never marks, runs

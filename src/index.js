@@ -19,4 +19,5 @@ export { Root, $roots } from './root.js';
 export { Id, Storage, Locks, Runtime, Props, Send, $name, Shelf, Locker, Memory } from './context.js';
 export { $settle } from './settle.js';
 export { $focus } from './focus.js';
+export { editOf, textAt, selectText, selectedText } from './text.js';
 export { $viewport, $media } from './viewport.js';

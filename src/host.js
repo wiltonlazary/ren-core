@@ -9,6 +9,8 @@
 export { mount, skeleton, Plan, $surface, $active } from './core.js';
 export { Theme, COLORS, UNITLESS } from './theme.js';
 export { Style, styled, overlay, argb, PORTABLE } from './style.js';
+// Where a renderer keeps an Edit's actions (on its ref) and a root's text actions (on the root).
+export { EDIT, TEXT } from './text.js';
 // How a root behaves under the user's hands (an app or a page), resolved to its switches.
 export { behaviorOf } from './behavior.js';
 // What Tab reaches inside a DOM element (ren-dom's focus trap cycles among them).
@@ -22,4 +24,6 @@ export { development, diagnose } from 'rrx-core/core';
 /** @typedef {import('./theme.js').Tokens} Tokens */
 /** @typedef {import('./behavior.js').Behavior} Behavior */
 /** @typedef {import('./behavior.js').Switches} Switches */
+/** @typedef {import('./text.js').EditActions} EditActions */
+/** @typedef {import('./text.js').TextActions} TextActions */
 /** @typedef {import('./style.js').StyleInput} StyleInput */
