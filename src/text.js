@@ -32,12 +32,14 @@ export const TEXT = Symbol.for('ren.text');
 
 /**
  * A root's text actions. `at` finds the static text under a pointer event
- * (null over none, over a field or over a press target); `select` opens
+ * (null over none or over a field), `pressed` when a press target holds it
+ * (a button's, a pressable row's: an application's menu decides whether
+ * to offer it); `select` opens
  * selection on one text and selects all of it, until a press elsewhere or
  * Escape, or the release it gives; `selected` is the text selected now
  * (in a field too; '' when none, or a secret field's).
  * @typedef {object} TextActions
- * @property {(event: any) => { node: any, text: string } | null} at
+ * @property {(event: any) => { node: any, text: string, pressed: boolean } | null} at
  * @property {(node: any) => () => void} select
  * @property {() => string} selected
  */
@@ -61,8 +63,9 @@ const textOf = node => rootOf(node)?.[TEXT] ?? null;
 export const editOf = ref => (ref != null && typeof ref === 'object' && ref[EDIT] != null ? ref[EDIT] : null);
 
 /**
- * The static text under a pointer event, as `{ node, text }`: null over
- * none (or where the renderer has no text actions).
+ * The static text under a pointer event, as `{ node, text, pressed }`
+ * (`pressed`: a press target holds it): null over none or a field (or
+ * where the renderer has no text actions).
  * @param {any} event a pointer handler's event
  */
 export const textAt = event => textOf(event?.target)?.at(event) ?? null;

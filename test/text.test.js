@@ -11,7 +11,7 @@ const rooted = () => {
   const calls = [];
   const root = {
     [TEXT]: {
-      at: e => (calls.push(['at', e.x]), e.x > 0 ? { node: label, text: 'hello' } : null),
+      at: e => (calls.push(['at', e.x]), e.x > 0 ? { node: label, text: 'hello', pressed: e.x > 5 } : null),
       select: n => (calls.push(['select', n.id]), () => calls.push(['release', n.id])),
       selected: () => 'he',
     },
@@ -31,13 +31,14 @@ describe('text actions', () => {
 
   it("finds the text under a pointer event, opens selection on it and reads the selection, through its root's", () => {
     const { label, calls } = rooted();
-    assert.deepEqual(textAt({ target: label, x: 4 }), { node: label, text: 'hello' });
+    assert.deepEqual(textAt({ target: label, x: 4 }), { node: label, text: 'hello', pressed: false });
+    assert.equal(textAt({ target: label, x: 9 })?.pressed, true, 'a press target holds it');
     assert.equal(textAt({ target: label, x: 0 }), null, 'over no text');
     const release = selectText(label);
     assert.equal(typeof release, 'function');
     release?.();
     assert.equal(selectedText(label), 'he');
-    assert.deepEqual(calls, [['at', 4], ['at', 0], ['select', 'label'], ['release', 'label']]);
+    assert.deepEqual(calls, [['at', 4], ['at', 9], ['at', 0], ['select', 'label'], ['release', 'label']]);
   });
 
   it("reaches a DOM shadow root's document, where the renderer keeps them", () => {

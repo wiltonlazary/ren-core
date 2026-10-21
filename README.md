@@ -1043,8 +1043,9 @@ element, the style `select` and `prevent="contextmenu"` still decide.
 every renderer: `editOf(ref)` gives an Edit's actions (`value`,
 `selection`, `setSelection`, `replace` as a user's edit that onChange hears
 and undo keeps, `selectAll`, `undo`, `redo`, `canUndo`, `canRedo`, `focus`,
-and `secret`, `readOnly`, `disabled`); `textAt(event)` the static text under
-a pointer event (`{ node, text }`); `selectText(node)` opens selection on
+and `secret`, `readOnly`, `disabled`); `textAt(event)` the text under a pointer
+event (`{ node, text, pressed }`: `pressed` when a press target holds it;
+null over a field); `selectText(node)` opens selection on
 that one text and selects it all, until a press elsewhere or Escape;
 `selectedText(node)` the text selected now. A renderer gives them under
 `EDIT` (on an Edit's ref) and `TEXT` (on the root its nodes belong to),
