@@ -357,7 +357,7 @@ const dispose = render(() => <App />, document.getElementById('app'), { root });
 - **Focus trap.** `trap` on a View, Layout or Scroll: while the focus is
   inside it, Tab and Shift+Tab cycle among the focusables inside it (the
   last to the first and back), on every renderer; when the focused element
-  inside it is removed, the trap, still there, takes the focus back (its
+  inside it is removed or hidden, the trap, still there, takes the focus back (its
   first focusable, else itself when it has a `tabIndex`); a component (a Modal, a
   FocusTrap) focuses one inside first with `$focus(ref)` (`$focus(ref,
   true)`: the last), which returns whether one took the focus: a canvas
