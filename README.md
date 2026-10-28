@@ -206,7 +206,9 @@ const dispose = render(() => <App />, document.getElementById('app'), { root });
   a component's own signals), `Times` (`count` rows,
   `children(i)` with a plain number; rows added and removed at the end, no
   diffing), `Render` (the component `of` names, chosen at run time),
-  `Portal` (into `into` or the host's portal layer), `Pending` (shows its
+  `Portal` (into `into` or the host's portal layer; it closes with its
+  owner, taking every node it holds, what its regions showed after it
+  opened too), `Pending` (shows its
   fallback until every pending read below it has a first value; later
   reruns keep the content; with `again`, a change of that key shows the
   fallback again), `Sequence` (the order in which the Pendings below it show

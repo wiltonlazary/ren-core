@@ -2492,7 +2492,9 @@ export function Render(props) {
 
 /**
  * Renders `children` into `into`, a container elsewhere (the host's portal
- * layer by default), in the order portals open; they close with their owner.
+ * layer by default), in the order portals open; they close with their
+ * owner, taking every node they hold there, what their regions showed after
+ * they opened too.
  * @param {{ into?: any, children?: any }} props
  */
 export function Portal(props) {
@@ -2519,13 +2521,16 @@ export function Portal(props) {
     throw error;
   }
   const owner = $owner(R);
+  // Its nodes run from its first to its last in the target: what its
+  // regions show later (a Show opened, a For's new rows) goes in between.
+  const span = nodes.length > 0 ? new Range(nodes[0], nodes[nodes.length - 1], nodes) : null;
   // The nodes leave their container when the owner stops or is retired
   // (background disposal: its scope is swept later with the owner's).
   let open = true;
   const shut = () => {
     if (!open) return;
     open = false;
-    for (const n of nodes) if (H.parent(n) === target) H.remove(target, n);
+    if (span !== null) for (const n of rangeNodes(H, span)) if (H.parent(n) === target) H.remove(target, n);
     if (detach !== null) detach();
   };
   const record = eager(R, owner, shut);

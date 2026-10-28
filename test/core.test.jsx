@@ -189,6 +189,37 @@ describe('ren-core without a renderer package', () => {
     dispose();
   });
 
+  it('closes a portal with what its regions showed after it opened, and leaves the next portal in place', () => {
+    const H = Tree();
+    const R = Root('main');
+    const open = $signal(R, true);
+    const late = $signal(R, false);
+    const items = $signal(R, /** @type {number[]} */ ([]));
+    const box = H.element('box', null);
+    const layer = H.layer();
+    const dispose = mount(H, () => (
+      <outer>
+        <Show when={open}>
+          <Portal>
+            <Show when={late}><notice /></Show>
+            <For each={items}>{n => <row n={n} />}</For>
+          </Portal>
+        </Show>
+        <Portal><other /></Portal>
+      </outer>
+    ), box, { root: R });
+    $write(late, true);
+    $write(items, [1, 2]);
+    assert.equal(find(layer, 'notice').length, 1);
+    assert.equal(find(layer, 'row').length, 2);
+    $write(open, false);
+    assert.deepEqual(layer.children.map(c => c.tag), ['other'], 'the shown notice and rows went with their portal');
+    $write(open, true);
+    assert.equal(find(layer, 'notice').length, 1, 'opened again: shown once');
+    dispose();
+    assert.equal(layer.children.length, 0);
+  });
+
   it("makes $parts' parts for the element the list goes into (an <a> under <svg>), for parts shown later too", () => {
     const H = Tree();
     const R = Root('main');
