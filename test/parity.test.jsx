@@ -22,7 +22,7 @@ import { coalesced } from './fixtures/coalesce.js';
  * @param {any[]} log @param {string} tag @param {string} name
  */
 const handler = (log, tag, name) => (/** @type {any} */ e) => {
-  const mods = `${e.shiftKey ? 'S' : ''}${e.ctrlKey ? 'C' : ''}${e.altKey ? 'A' : ''}${e.metaKey ? 'M' : ''}`;
+  const mods = `${e.shiftKey ? 'S' : ''}${e.ctrlKey ? 'C' : ''}${e.altKey ? 'A' : ''}${e.metaKey ? 'M' : ''}${e.focusVisible ? 'V' : ''}`;
   log.push(`${tag} ${name} x=${e.x ?? 0} y=${e.y ?? 0} dy=${e.deltaY ?? 0} b=${e.button ?? -1} ${mods} ${e.key ?? ''}`);
   if (e.key === `stop:${tag}`) e.stopPropagation();
 };
@@ -38,6 +38,7 @@ const App = log => () => {
     onWheel: handler(log, tag, 'wheel'),
     onFocus: handler(log, tag, 'focus'),
     onBlur: handler(log, tag, 'blur'),
+    onFocusIn: handler(log, tag, 'focusin'),
     onKey: handler(log, tag, 'key'),
     onScroll: handler(log, tag, 'scroll'),
   });
@@ -69,6 +70,8 @@ const SCRIPT = [
   [[[['inner', 'focus']], { key: 'stop:inner' }], [[['inner', 'blur']], { key: 'stop:inner' }], [[['outer', 'focus']], {}], [[['outer', 'blur']], {}]],
   [[[['inner', 'focus']], SHARED], [[['inner', 'blur']], SHARED], [[['inner', 'focus']], SHARED]],
   [[[['inner', 'focus']], {}]],
+  // A visible focus (the keyboard gave it) and a focusin bubbling with it; then one the pointer gave.
+  [[[['inner', 'focus']], { focusVisible: true }], [[['inner', 'focusin'], ['outer', 'focusin']], { focusVisible: true }], [[['inner', 'focusin'], ['outer', 'focusin']], { focusVisible: false }]],
   // Keys: the focused item and its ancestors, then the root's $keys.
   [[KEY, { key: 'a', ctrlKey: true }], [KEY, { key: 'stop:inner' }], [KEY, { key: 'stop:outer', altKey: true, metaKey: true }], [KEY, { key: 'b' }]],
   // Scrolls: $scrolls first; the item's stop cannot reach it.

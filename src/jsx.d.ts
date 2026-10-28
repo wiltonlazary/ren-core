@@ -60,11 +60,14 @@ export type DragLike = {
 /**
  * A focus that bubbles (focusin, focusout), as the DOM's FocusEvent:
  * `relatedTarget` is the item on the other side of the move (null: none;
- * in a worker, not carried).
+ * in a worker, not carried). A focusin's `focusVisible` is true when the
+ * focus shows its ring, as the DOM's `:focus-visible`.
  */
 export type FocusLike = {
   type: 'focusin' | 'focusout';
   relatedTarget: unknown;
+  /** On focusin (and an item's own focus): the focus shows its ring, as the DOM's `:focus-visible`: the keyboard gave it, or code moved it after a key and not after a pointer press; a text field's always. Not set on focusout. */
+  focusVisible?: boolean;
   target: unknown;
   currentTarget: unknown;
   stopPropagation(): void;
@@ -85,6 +88,7 @@ export type Events = {
   onChange?: (event: { value: string; event?: unknown }) => void;
   onSubmit?: (event: { value: string; event?: unknown }) => void;
   onKey?: (event: { key: string }) => void;
+  /** It took the focus (the DOM's focus, not bubbling); the event's `focusVisible` is a focusin's (FocusLike). */
   onFocus?: (event: unknown) => void;
   onBlur?: (event: unknown) => void;
   /** Focus moved into it or a child (the DOM's focusin, after the new item's focus): it bubbles from the item focused; `relatedTarget` is the item that lost it (null: none). */

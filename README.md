@@ -270,7 +270,12 @@ const dispose = render(() => <App />, document.getElementById('app'), { root });
   receiving `{ value }`, `onSubmit`, `onKey`, `onFocus`, `onBlur`,
   `onFocusIn` and `onFocusOut` (focus moving into or out of the item or a
   child, bubbling after the item's own focus or blur, with `relatedTarget`
-  the item on the other side, as the DOM's focusin and focusout), the
+  the item on the other side, as the DOM's focusin and focusout; a focus
+  and a focusin carry `focusVisible`, true when the focus shows its ring,
+  as the DOM's `:focus-visible`: the keyboard gave it, or code moved it
+  after a key and not after a pointer press, and a text field's always;
+  ren-dom reads the browser's `:focus-visible`, a canvas follows its own
+  ring, and a worker hears it too), the
   pointer's `onPointerDown`, `onPointerMove`, `onPointerUp`, `onWheel`,
   `onPointerEnter`, `onPointerLeave` and `onPointerCancel` (the browser
   took the pressed pointer back: a touch it pans or zooms with, as
@@ -843,8 +848,8 @@ per-document template and the instance's held nodes take the ids `first`,
 `first + 1`, …, which the worker's handles mirror. The typed buffers are transferred
 and come back in the acknowledgement, so steady state allocates none.
 Events travel as one flat array per task: 11 scalars per event (sequence,
-listener, generation, modifier flags and a wheel's `deltaMode`, button, x,
-y, deltas, value, key).
+listener, generation, modifier flags, a wheel's `deltaMode` and a focus's
+`focusVisible`, button, x, y, deltas, value, key).
 No JSON, no string-keyed records and no per-operation objects cross; nothing
 waits for a reply.
 
@@ -910,7 +915,8 @@ on rrx-core's own scheduling:
   `into` renders into the host's layer as in direct mode.
 - Handlers receive an `Input`: `type`, `value`, `key`, `x`, `y`, `deltaX`,
   `deltaY`, `deltaMode` (a wheel's unit, as the DOM's: 0 pixels, 1 lines,
-  2 pages), `button`, the modifier keys, `checked`, and `target` (itself, so
+  2 pages), `button`, the modifier keys, `checked`, `editable`,
+  `focusVisible` (a focus or focusin's), and `target` (itself, so
   `event.target.value` reads the same). `stopPropagation()` works as in direct
   mode: the handlers that heard the same main-thread dispatch after this one
   (its ancestors', a root's `$keys`) do not run. A default action cannot be cancelled

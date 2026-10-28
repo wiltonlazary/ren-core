@@ -81,9 +81,9 @@
 //   there instead and announced by [BELL, number]; its buffers stay here.
 // Messages main → worker: [EVENT, count, ...records of RECORD scalars]
 // (a record's flags word carries six flag bits, then a wheel's deltaMode in
-// two bits, and above them the number of the main-thread dispatch it came
-// from, 0 for none: a stopPropagation skips the later records of its
-// dispatch),
+// two bits, a focus's focusVisible in one, and above them the number of the
+// main-thread dispatch it came from, 0 for none: a stopPropagation skips the
+// later records of its dispatch),
 // [RETURN, ops, nums | null, apply ms, present ms, records, number, late],
 // [SYNC, token], [POST, seq, lane, data]; [ROOT, id, entries, props, view,
 // protocol, regional] first, on which the view builds (an application root's id, which
@@ -312,6 +312,8 @@ export class Input {
     this.checked = (flags & 16) !== 0;
     /** A key's target is a text field ($keys). */
     this.editable = (flags & 32) !== 0;
+    /** A focus shows its ring, as the DOM's :focus-visible (focus, focusin). */
+    this.focusVisible = (flags & 256) !== 0;
     /** A resize's new border box (its x and y on the wire). */
     this.width = type === 'resize' ? x : 0;
     this.height = type === 'resize' ? y : 0;
@@ -1406,7 +1408,7 @@ export class Remote {
         this.acked = data[i];
         const flags = data[i + 3];
         // A dispatch's records come in a row: another dispatch's record ends a stop, so a number the counter gives again (it wraps) is heard.
-        const dispatch = flags >>> 8;
+        const dispatch = flags >>> 9;
         if (dispatch !== 0 && dispatch !== this.halted) this.halted = 0;
         const id = data[i + 1];
         const handler = this.handlers[id];

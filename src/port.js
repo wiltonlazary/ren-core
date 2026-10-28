@@ -22,7 +22,7 @@ export const NOTHING = [];
  * worker answers with its own (VERSION), so each side refuses the other
  * when they differ. It changes with any change to the messages or records.
  */
-export const PROTOCOL = 2;
+export const PROTOCOL = 3;
 
 /**
  * The error of a side whose peer speaks another wire version.

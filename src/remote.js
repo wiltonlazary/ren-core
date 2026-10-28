@@ -89,8 +89,8 @@ const VIEWPORT = 9;
 const REGION = 10;
 /** Frames polled for an answer in the mailbox after forwarding input. */
 const POLLS = 3;
-/** A record's flags word: six flag bits, a wheel's deltaMode in two, and above them the dispatch number, below 2**30 (it wraps). */
-const DISPATCHES = 2 ** 22 - 1;
+/** A record's flags word: six flag bits, a wheel's deltaMode in two, a focus's focusVisible in one, and above them the dispatch number, below 2**30 (it wraps). */
+const DISPATCHES = 2 ** 21 - 1;
 /** The flag bits two wheels share to add up: the modifier keys and the deltaMode. */
 const WHEELS = 15 | (3 << 6);
 /** The words of one event record. */
@@ -790,7 +790,7 @@ export class Connection {
     const kind = this.kinds[listener];
     // A resize carries the new border box's width and height where a pointer carries x and y.
     const size = source != null && source.type === 'resize';
-    const flags = flagsOf(source) | (dispatch << 8);
+    const flags = flagsOf(source) | (dispatch << 9);
     const button = source != null && typeof source.button === 'number' ? source.button : -1;
     if (this.group < 0 || dispatch === 0 || dispatch !== this.groupDispatch) {
       // Another dispatch: the one before it is whole.
@@ -1008,7 +1008,7 @@ function samePath(out, a, b, length) {
   return true;
 }
 
-/** An event's flag bits: its modifier keys, a checked target, a text field's key, a wheel's deltaMode. @param {any} source */
+/** An event's flag bits: its modifier keys, a checked target, a text field's key, a wheel's deltaMode, a visible focus. @param {any} source */
 function flagsOf(source) {
   let flags = 0;
   if (source != null) {
@@ -1020,6 +1020,7 @@ function flagsOf(source) {
     if (source.editable === true) flags |= 32;
     const mode = source.deltaMode;
     if (mode === 1 || mode === 2) flags |= mode << 6;
+    if (source.focusVisible === true) flags |= 256;
   }
   return flags;
 }
