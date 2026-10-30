@@ -1,6 +1,6 @@
 {
   "name": "ren-core",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "description": "A renderer-neutral JSX component layer over rrx-core: components, control flow, portable primitives, application roots, contexts, a worker runtime and a template compiler. Renderers: ren-dom, ren-canv, ren-skia, ren-three, ren-html, ren-json.",
   "type": "module",
   "license": "MIT",
