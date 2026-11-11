@@ -381,6 +381,72 @@ describe('a root without a lock manager', () => {
     assert.equal(await a.locker.request('refresh', async () => Number(/** @type {string} */ (backing.getItem(KEY)).split(' ')[0]) > Date.now()), true);
   });
 
+  it('lets no second tab in when it takes an expired claim at the instant a slow tab renews it', async t => {
+    const backing = new Memory();
+    // b's view of the shared storage: its looks before a write of its own can
+    // come one write late, as when it looked, in its own process, just before
+    // that write.
+    /** @type {string | null} */
+    let late = null;
+    const view = /** @type {Memory} */ (/** @type {unknown} */ ({
+      get length() {
+        return backing.length;
+      },
+      key: (/** @type {number} */ index) => backing.key(index),
+      getItem: (/** @type {string} */ key) => late ?? backing.getItem(key),
+      setItem: (/** @type {string} */ key, /** @type {string} */ value) => {
+        late = null;
+        backing.setItem(key, value);
+      },
+      removeItem: (/** @type {string} */ key) => backing.removeItem(key),
+    }));
+    const [a, b] = [tab(t, backing, { ttl: 20 }), tab(t, view, { ttl: 20 })];
+    // One late timer (a tab waking up): a's first settle outlasts its claim.
+    a.lease.settle = 60;
+    /** @type {string[]} */
+    const seen = [];
+    let inside = 0;
+    let most = 0;
+    const hold = gate();
+    /** @param {string} name */
+    const work = name => async () => {
+      most = Math.max(most, ++inside);
+      seen.push(`${name} in`);
+      await hold.promise;
+      seen.push(`${name} out`);
+      inside--;
+    };
+    /** @type {Promise<any> | null} */
+    let two = null;
+    const setItem = backing.setItem.bind(backing);
+    let writes = 0;
+    backing.setItem = (key, value) => {
+      const expired = backing.getItem(key);
+      setItem(key, value);
+      // a's second write renews the claim it found expired. b asks at that
+      // instant: its look saw the expired claim, its write lands after a's.
+      if (value.endsWith(` ${a.lease.holder}`) && ++writes === 2) {
+        assert.ok(Number(/** @type {string} */ (expired).split(' ')[0]) <= Date.now(), "a's claim expired during its settle");
+        a.lease.settle = 2;
+        late = expired;
+        two = b.locker.request('refresh', work('b'));
+        assert.equal(/** @type {string} */ (backing.getItem(key)).split(' ')[1], b.lease.holder, "b's write stands");
+      }
+    };
+    const one = a.locker.request('refresh', work('a'));
+    await reached(() => seen.length > 0);
+    const first = Date.now();
+    // a settled again and found the lease b's: it waits, as long as b holds.
+    await reached(() => Date.now() > first + 20);
+    assert.deepEqual(seen, ['b in'], 'a does not hold beside b');
+    assert.equal(a.lease.asks.size, 1, 'a waits');
+    hold.resolve();
+    await Promise.all([one, two]);
+    assert.deepEqual(seen, ['b in', 'b out', 'a in', 'a out']);
+    assert.equal(most, 1);
+    assert.equal(backing.length, 0);
+  });
+
   it('grants shared as exclusive, and refuses what a lease cannot do', async t => {
     const backing = new Memory();
     const { locker } = tab(t, backing);

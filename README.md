@@ -1060,7 +1060,9 @@ share that storage:
 - A request takes the lock when no other holder has an unexpired lease: it
   writes its own, waits `settle` (50 ms) for a tab that wrote at the same
   moment (the last write stands) and holds the lock if the lease is still
-  its own; else it looks again every `poll` (100 ms). A lease lasts `ttl`
+  its own; else it looks again every `poll` (100 ms). A claim found expired
+  at the settle's end (a slowed tab's settle outlasted it) is written again
+  and settled once more before it is held. A lease lasts `ttl`
   (15 s) and is renewed every third of that while the callback runs, so a
   tab closed holding the lock frees it once its lease expires. One root's
   requests of a lock run in turn. The three waits are fields of
@@ -1075,8 +1077,13 @@ share that storage:
   that wait; another tab's waiting requests are not known.
 - It excludes while a holder's timers run at least once per `ttl`: a tab
   suspended for longer while it holds loses the lock to another tab, its
-  callback still running, and nothing tells it. A lock manager has no such
-  limit, and is used wherever there is one.
+  callback still running, and nothing tells it. A storage has no
+  compare-and-set, so a look and the write after it are two steps: two tabs
+  both hold when one's write lands more than `settle` after its look found
+  the lock free (a tab stalled between the two), or when a tab's settle
+  outlasts `ttl` twice in a row and another tab takes its expired claim at
+  the instant it is renewed. A lock manager has no such limits, and is used
+  wherever there is one.
 - `$dispose(root)` removes the leases the root holds (a callback still
   running runs on, excluding no more) and clears its timers; its requests
   that wait never settle, as a closed page's.

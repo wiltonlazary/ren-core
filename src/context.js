@@ -220,7 +220,9 @@ function token() {
  * A request takes the lock when no other holder has an unexpired lease: it
  * writes its own, waits `settle` milliseconds for a tab that wrote at the
  * same moment (the last write stands) and holds the lock if the lease is
- * still its own; else it looks again every `poll` milliseconds. A lease
+ * still its own; else it looks again every `poll` milliseconds. A claim
+ * found expired at the settle's end (a slowed tab's settle outlasted it) is
+ * written again and settled once more before it is held. A lease
  * lasts `ttl` milliseconds from the moment it is held and is renewed every
  * third of that while its callback runs, so a holder that vanished (a tab
  * closed) frees the lock once its lease expires; the callback's end removes
@@ -229,7 +231,11 @@ function token() {
  * It excludes as long as a holder's timers run at least once per `ttl` and
  * the tabs read one clock: a tab frozen for longer while it holds (a
  * suspended page) loses the lock to another tab while its callback still
- * runs, and nothing tells it.
+ * runs, and nothing tells it. A storage has no compare-and-set, so a look
+ * and the write after it are two steps: two tabs both hold when one's write
+ * lands more than `settle` after its look found the lock free (a tab stalled
+ * between the two), or when a tab's settle outlasts `ttl` twice in a row and
+ * another tab takes the expired claim at the instant it is renewed.
  */
 export class Lease {
   /** @param {string} id the root's id @param {Backing} backing */
@@ -338,6 +344,8 @@ export class Lease {
     const never = () => new Promise(() => {});
     let leased = false;
     let held = false;
+    /** The claim before this one was found expired at its settle's end. */
+    let again = false;
     try {
       if (before !== undefined) await until(before);
       if (this.closed) await never();
@@ -349,12 +357,23 @@ export class Lease {
         leased = true;
         // timer: feature, the settle window: a lease another tab wrote at the same moment shows within it
         await until(new Promise(resolve => (ask.timer = setTimeout(resolve, this.settle))));
-        if (this.read(key)?.holder === this.holder) {
-          // Still its own: held, its term counted from now.
+        const claim = this.read(key);
+        if (claim !== null && claim.holder === this.holder) {
+          // Still its own, but expired (the settle outlasted it, as a slowed
+          // tab's does): another tab may be taking it at this very instant,
+          // its write landing after a renewal here. Claimed again and settled
+          // once more, so that write shows; a second claim in a row found
+          // expired is held all the same, or a tab that slow would never hold.
+          if (claim.until <= Date.now() && !again) {
+            again = true;
+            continue;
+          }
+          // Held, its term counted from now.
           this.write(key);
           held = true;
           break;
         }
+        again = false;
         leased = false;
         if (ifAvailable) break;
       }
