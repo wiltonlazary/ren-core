@@ -1,7 +1,9 @@
 // Application roots: rrx-core's root (`$root`), extended with what an application needs to
 // live confined in a document. One id names everything: the rrx-core root, the
 // host element (`data-ren-root="<id>"`), storage keys `ren:<id>:<key>`, lock
-// names `ren:<id>:<name>`, element ids `<id>-<name>` (`$name`), and the
+// names `ren:<id>:<name>` (and, where there is no lock manager, their lease
+// items `ren-lock:<id>:<name>` in the storage backing), element ids
+// `<id>-<name>` (`$name`), and the
 // per-document registry of live roots. Each root has its own graph, its own
 // renderer (configured by its own options), its own contexts and, in the
 // worker runtime, its own worker. Nothing is kept in module state but a
