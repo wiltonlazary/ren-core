@@ -467,8 +467,9 @@ function handle(R, H, context, owner, handler, event) {
     within(R, H, () => $with(R, context, () => $batch(R, () => handler(event))));
   } catch (error) {
     const left = $deliver(R, owner, error);
-    // What the handler wrote before it threw still shows.
-    if (!R.closed) $flush(R);
+    // What the handler wrote before it threw still shows: flushed now, or
+    // by the flush the handler ran in (an event an effect dispatched).
+    if (!R.closed && !R.flushing) $flush(R);
     if (left !== null) throw left;
   }
 }

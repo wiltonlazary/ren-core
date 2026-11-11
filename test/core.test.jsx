@@ -664,6 +664,31 @@ describe('ren-core without a renderer package', () => {
     $dispose(R);
   });
 
+  it('hands what a handler throws while its root flushes to its boundary alone', () => {
+    const H = Tree();
+    const R = Root('main');
+    const fire = $signal(R, false);
+    const count = $signal(R, 0);
+    const box = H.element('box', null);
+    const dispose = mount(H, () => (
+      <Recover fallback={(/** @type {any} */ error) => <failed>{String(error.message)}</failed>}>
+        <button onClick={() => {
+          $write(count, 1);
+          throw new Error('handler');
+        }} />
+        <count>{() => String($read(count))}</count>
+      </Recover>
+    ), box, { root: R });
+    const [button] = find(box, 'button');
+    // An effect dispatches the event, as a focus() or a click() made in one does on the DOM: the handler runs inside the flush.
+    $effect(R, () => {
+      if ($read(fire)) button.on.click({});
+    });
+    assert.doesNotThrow(() => $write(fire, true), 'the boundary took it: nothing reaches the dispatch');
+    assert.equal(text(box), 'handler');
+    dispose();
+  });
+
   it('returns from a handler that closes its own view and root', () => {
     const H = Tree();
     const box = H.element('box', null);
