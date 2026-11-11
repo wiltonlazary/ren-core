@@ -379,8 +379,12 @@ export class Lease {
         this.renewals.delete(key);
       }
       if (leased) this.release(key);
-      if (this.turns.get(key) === turn) this.turns.delete(key);
       done();
+      // The lock's turns are forgotten once every request up to this one has
+      // ended: one that ends early (aborted in line) leaves the holder ahead.
+      turn.then(() => {
+        if (this.turns.get(key) === turn) this.turns.delete(key);
+      });
     }
   }
 

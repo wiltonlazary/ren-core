@@ -295,6 +295,55 @@ describe('a root without a lock manager', () => {
     assert.equal(backing.length, 0);
   });
 
+  it('keeps the lock its holder\'s when a request behind it aborts: the next one still waits its turn', async t => {
+    const backing = new Memory();
+    const { root, locker, lease } = tab(t, backing);
+    /** @type {string[]} */
+    const seen = [];
+    let inside = 0;
+    let most = 0;
+    const [first, third] = [gate(), gate()];
+    const hold = (/** @type {string} */ who, /** @type {Promise<any>} */ until) => async () => {
+      most = Math.max(most, ++inside);
+      seen.push(`${who} in`);
+      await until;
+      seen.push(`${who} out`);
+      inside--;
+    };
+    const one = locker.request('refresh', hold('1', first.promise));
+    await reached(() => seen.length === 1);
+    // The second waits its turn, the last in line, and aborts there.
+    const stop = new AbortController();
+    const two = locker.request('refresh', { signal: stop.signal }, hold('2', Promise.resolve()));
+    stop.abort(new Error('stopped'));
+    await assert.rejects(two, /stopped/);
+    const three = locker.request('refresh', hold('3', third.promise));
+    assert.equal(await locker.request('refresh', { ifAvailable: true }, lock => (lock === null ? 'held' : 'taken')), 'held');
+    // Long enough for the third to have settled its own lease, had it not waited.
+    await new Promise(resolve => {
+      // timer: deadline, the third request's settle window (2 ms) is well over by then; its turn must not have come
+      setTimeout(resolve, 20);
+    });
+    assert.deepEqual(seen, ['1 in'], 'the third does not start before the first ends');
+    assert.equal(/** @type {string} */ (backing.getItem(KEY)).split(' ')[1], lease.holder, "the lease stays the holder's");
+    assert.equal(lease.renewals.size, 1);
+    first.resolve();
+    await one;
+    await reached(() => seen.includes('3 in'));
+    assert.notEqual(backing.getItem(KEY), null, 'the third holds it now');
+    third.resolve();
+    await three;
+    assert.deepEqual(seen, ['1 in', '1 out', '3 in', '3 out']);
+    assert.equal(most, 1, 'never two holders');
+    // Nothing is left: no lease, no renewal timer, no turn, no waiting request; and none after the root ends.
+    await reached(() => lease.turns.size === 0);
+    assert.equal(backing.length, 0);
+    assert.equal(lease.renewals.size, 0);
+    assert.equal(lease.asks.size, 0);
+    $dispose(root);
+    assert.equal(lease.renewals.size, 0);
+  });
+
   it('grants shared as exclusive, and refuses what a lease cannot do', async t => {
     const backing = new Memory();
     const { locker } = tab(t, backing);
