@@ -2960,7 +2960,10 @@ export function mount(H, view, container, options = {}) {
    * @param {boolean} failed
    */
   const undo = failed => {
-    for (const n of nodes) if (H.parent(n) === container) H.remove(container, n);
+    // The view runs from its first node to its last in the container: what
+    // its regions and lists showed after the build lies between.
+    const shown = nodes.length > 0 ? rangeNodes(H, new Range(nodes[0], nodes[nodes.length - 1], nodes)) : nodes;
+    for (const n of shown) if (H.parent(n) === container) H.remove(container, n);
     // A throwing cleanup still lets the view release its listeners and root.
     try {
       $stop(scope);

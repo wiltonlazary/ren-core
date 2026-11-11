@@ -316,6 +316,23 @@ describe('ren-core without a renderer package', () => {
     dispose();
   });
 
+  it("removes what a view's top-level regions and lists showed later when the mount's dispose runs", () => {
+    const H = Tree();
+    const R = Root('main');
+    const on = $signal(R, false);
+    const items = $signal(R, /** @type {string[]} */ ([]));
+    const box = H.element('box', null);
+    const kept = H.element('kept', null);
+    H.insert(box, kept, null);
+    const dispose = mount(H, () => [<For each={items}>{item => <row>{item}</row>}</For>, <Show when={on} fallback={<off>off</off>}><on>on</on></Show>, <For each={items}>{item => <row>{item}</row>}</For>], box, { root: R });
+    // A Show swapped and two lists grown, at the view's start and end.
+    $write(on, true);
+    $write(items, ['a', 'b']);
+    assert.equal(text(box), 'abonab');
+    dispose();
+    assert.deepEqual(box.children, [kept], 'only what the container held before stays');
+  });
+
   it('closes a portal that starts with a list with every row the list showed later', () => {
     const H = Tree();
     const R = Root('main');
