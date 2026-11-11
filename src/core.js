@@ -2482,8 +2482,10 @@ export function Times(props) {
 }
 
 /**
- * Renders the component `of` names, chosen at run time (a component, a tag
- * name, or an accessor of either), with the other props.
+ * Renders what `of` names, chosen at run time, with the other props: a tag
+ * name, or an accessor or a reactive node of a component or a tag name. A
+ * function is always the accessor, called with no props: a component goes in
+ * one (`of={() => Component}`).
  * @param {{ of: any, [prop: string]: any }} props
  */
 export function Render(props) {

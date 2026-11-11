@@ -213,7 +213,9 @@ const dispose = render(() => <App />, document.getElementById('app'), { root });
   child's content is, so it may write state: a `ref` that writes a signal,
   a component's own signals), `Times` (`count` rows,
   `children(i)` with a plain number; rows added and removed at the end, no
-  diffing), `Render` (the component `of` names, chosen at run time),
+  diffing), `Render` (what `of` names, chosen at run time: a tag name, or an
+  accessor or node of a component or a tag name; a function is always the
+  accessor, so a component goes in one, `of={() => Component}`),
   `Portal` (into `into` or the host's portal layer; it closes with its
   owner, taking every node it holds, what its regions showed after it
   opened too), `Pending` (shows its

@@ -4,7 +4,7 @@
 
 import { describe, it, mock } from 'node:test';
 import assert from 'node:assert/strict';
-import { $parts, $roots, $settle, $settled, $sweeper, Storage, Memory, $memo, $auto, $flush, $effect, $catch, $task, $pending, $keys, $defer, Portal, Recover, Root, $signal, $read, $write, $dispose, $cleanup, $lookup, Runtime, Props, Show, Choose, When, For, Times, $owner, $active, $surface, Edit, View, Label, Pending, Sequence } from 'ren-core';
+import { $parts, $roots, $settle, $settled, $sweeper, Storage, Memory, $memo, $auto, $flush, $effect, $catch, $task, $pending, $keys, $defer, Portal, Recover, Root, $signal, $read, $write, $dispose, $cleanup, $lookup, Runtime, Props, Show, Choose, When, For, Times, Render, $owner, $active, $surface, Edit, View, Label, Pending, Sequence } from 'ren-core';
 import { mount } from 'ren-core/host';
 import { serve } from 'ren-core/worker';
 import { connect } from 'ren-core/remote';
@@ -465,6 +465,33 @@ describe('ren-core without a renderer package', () => {
     assert.deepEqual(find(box, 'div')[0].props, { title: 't' }, 'a key never reaches the host');
     // A spread written after the key sets it last.
     assert.deepEqual(seen, ['spread', 'k', 'spread']);
+    dispose();
+  });
+
+  it('renders what of names: a tag name, or an accessor or node of a component or tag; a function is always the accessor', () => {
+    const H = Tree();
+    const R = Root('main');
+    /** @type {any[]} */
+    const seen = [];
+    const Hello = (/** @type {any} */ props) => (seen.push(props), <hello>{props?.text ?? 'no props'}</hello>);
+    const which = $signal(R, 'first');
+    const Named = () => 'named';
+    const box = H.element('box', null);
+    const dispose = mount(H, () => (
+      <list>
+        <Render of="tag" children="a" />
+        <Render of={() => Hello} text="b" />
+        <Render of={which} children="c" />
+        <Render of={Named} children="d" />
+      </list>
+    ), box, { root: R });
+    assert.deepEqual(find(box, 'list')[0].children.filter(c => !c.tag.startsWith('#')).map(c => c.tag), ['tag', 'hello', 'first', 'named']);
+    assert.equal(text(box), 'abcd');
+    assert.deepEqual(seen, [{ text: 'b' }], 'a component in an accessor gets the other props');
+    $write(which, 'second');
+    assert.equal(find(box, 'second').length, 1, 'a node is followed');
+    // A component given as itself is the accessor: called with no props, and what it returns (a tag name here) is rendered.
+    assert.equal(find(box, 'named').length, 1);
     dispose();
   });
 
