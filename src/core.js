@@ -2576,8 +2576,15 @@ export function Pending(props) {
   let slot = null;
   const scope = $with(R, new Layer(R.ctx, PENDING_BOUNDARY, null, boundary, false), () => $scope(R, $owner(R)));
   /** @type {any[]} */
-  const content = [];
+  let content = [];
   $enter(scope, () => resolve(R, H, props.children, content, false));
+  // The content runs from its first node to its last: what its regions and
+  // lists showed after they were built lies between.
+  const span = content.length > 0 ? new Range(content[0], content[content.length - 1], content) : null;
+  /** Takes the content as it stands in the host, while it is there: what shows again after a fallback. */
+  const refresh = () => {
+    if (span !== null) content = span.nodes = rangeNodes(H, span);
+  };
   const ready = $memo(R, () => {
     const n = $read(count);
     const key = keyed ? read(again) : undefined;
@@ -2598,6 +2605,10 @@ export function Pending(props) {
     } else if (!$read(ready)) return props.fallback;
     // Updates that arrived while the content was held place once it shows.
     reattach(R);
+    // The content is taken as it stands when this run's scope stops: right
+    // before the fallback that replaces it clears it from the host.
+    const owner = $owner(R);
+    if (owner !== null) $cleanup(owner, refresh);
     return content;
   };
   indicators.add(view);

@@ -279,6 +279,43 @@ describe('ren-core without a renderer package', () => {
     dispose();
   });
 
+  it('shows a Pending again content as it stands after a fallback cycle, not as first built', () => {
+    const H = Tree();
+    const R = Root('main');
+    const id = $signal(R, 1);
+    const on = $signal(R, false);
+    const items = $signal(R, ['a']);
+    /** @type {((r: any) => void)[]} */
+    const done = [];
+    const user = $task(R, () => $read(id), (_, complete) => void done.push(complete));
+    const box = H.element('box', null);
+    const dispose = mount(H, () => (
+      <Pending again={() => $read(id)} fallback={<wait>…</wait>}>
+        <Show when={on} fallback={<off>off</off>}><on>on</on></Show>
+        <name>{() => $read(user)}</name>
+        <For each={items}>{item => <row>{item}</row>}</For>
+      </Pending>
+    ), box, { root: R });
+    done[0]({ ok: true, value: ' ada ' });
+    assert.equal(text(box), 'off ada a');
+    // A top-level Show and For change while the content shows.
+    $write(on, true);
+    $write(items, ['b', 'c']);
+    assert.equal(text(box), 'on ada bc');
+    $write(id, 2);
+    assert.equal(text(box), '…');
+    done[1]({ ok: true, value: ' grace ' });
+    assert.equal(text(box), 'on grace bc');
+    // They keep following their sources, and a second cycle shows them as they are then.
+    $write(on, false);
+    $write(items, ['d']);
+    assert.equal(text(box), 'off grace d');
+    $write(id, 3);
+    done[2]({ ok: true, value: ' joan ' });
+    assert.equal(text(box), 'off joan d');
+    dispose();
+  });
+
   it('closes a portal that starts with a list with every row the list showed later', () => {
     const H = Tree();
     const R = Root('main');
