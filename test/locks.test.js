@@ -344,6 +344,43 @@ describe('a root without a lock manager', () => {
     assert.equal(lease.renewals.size, 0);
   });
 
+  it('lets no second tab in when a settle outlasts the ttl: the slow one yields, or holds a lease counted from then', async t => {
+    const backing = new Memory();
+    // a's timers are slowed (a background tab): its settle takes longer than its lease lasts.
+    const [a, b] = [tab(t, backing, { ttl: 20 }), tab(t, backing, { ttl: 20 })];
+    a.lease.settle = 60;
+    /** @type {string[]} */
+    const seen = [];
+    let inside = 0;
+    let most = 0;
+    const hold = gate();
+    const one = a.locker.request('refresh', async () => {
+      most = Math.max(most, ++inside);
+      seen.push('a in');
+      inside--;
+    });
+    const wrote = Number(/** @type {string} */ (backing.getItem(KEY)).split(' ')[0]);
+    const two = b.locker.request('refresh', async () => {
+      most = Math.max(most, ++inside);
+      seen.push('b in');
+      await hold.promise;
+      seen.push('b out');
+      inside--;
+    });
+    // b takes the lock once a's first lease has expired, and a, done settling, finds it b's and waits.
+    await reached(() => seen.length === 1);
+    assert.deepEqual(seen, ['b in']);
+    assert.ok(Date.now() >= wrote, "not before a's lease expired");
+    await reached(() => a.lease.asks.size === 1 && Date.now() > wrote + 60);
+    assert.deepEqual(seen, ['b in'], 'a, past its settle, is not in beside b');
+    hold.resolve();
+    await Promise.all([one, two]);
+    assert.deepEqual(seen, ['b in', 'b out', 'a in']);
+    assert.equal(most, 1);
+    // Alone, the slow tab holds after its settle with a lease counted from then, not one already expired.
+    assert.equal(await a.locker.request('refresh', async () => Number(/** @type {string} */ (backing.getItem(KEY)).split(' ')[0]) > Date.now()), true);
+  });
+
   it('grants shared as exclusive, and refuses what a lease cannot do', async t => {
     const backing = new Memory();
     const { locker } = tab(t, backing);
