@@ -151,7 +151,12 @@ const dispose = render(() => <App />, document.getElementById('app'), { root });
   phase by its gate (a Render of its own), where a transition can hold it;
   the old content stops when the new one takes its place, so it stays live
   until then. A nested `<Root>` in content being replaced hands its id to
-  the new content's.
+  the new content's. A list's rows do not: an update builds its new rows
+  before the rows it removes leave, so a new row whose nested `<Root>` takes
+  the id of a row leaving in that same update is refused (`REN: a root
+  "<id>" is already live in this document`) and the list keeps its rows.
+  Key such rows by what the id comes from (`by`), so an item fetched again
+  keeps its row and its root.
 - `read(value)` reads a prop that may be reactive: it calls an accessor,
   reads an rrx-core node with `$read`, and returns any other value as is.
   Inside a computation (a binding, a memo) the read is tracked.
