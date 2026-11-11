@@ -42,6 +42,8 @@ import { $signal, $read, $write, $writable, $untrack, $unowned, $lookup } from '
  * key follows writes to it, from this root, another tab or the other thread.
  * Every change dispatches `ren:storage` on the root's host element, with
  * `detail` `{ id, key, value }` (`key` null when the storage was cleared).
+ * Once its root is disposed it still reads and writes the backing (an answer
+ * that arrives late keeps what it brings); nothing tracks or hears it then.
  */
 export class Shelf {
   /** @param {Graph} root @param {Backing} backing */
@@ -58,7 +60,7 @@ export class Shelf {
 
   /** The value of `key`, or null. @param {string} key @returns {string | null} */
   get(key) {
-    $read(this.version);
+    if (!this.version.root.closed) $read(this.version);
     return this.backing.getItem(this.prefix + key);
   }
 
@@ -77,7 +79,7 @@ export class Shelf {
 
   /** This root's keys, sorted. @returns {string[]} */
   keys() {
-    $read(this.version);
+    if (!this.version.root.closed) $read(this.version);
     return this.own().sort();
   }
 
@@ -130,6 +132,7 @@ export class Shelf {
    */
   changed(key, value, origin) {
     const version = this.version;
+    if (version.root.closed) return;
     $write(version, $untrack(version.root, () => $read(version)) + 1);
     if (origin !== 2 && this.sink !== null) this.sink(key, value);
     if (this.notify !== null) this.notify(key, value);

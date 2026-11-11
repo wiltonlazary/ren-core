@@ -1020,7 +1020,8 @@ layers read with `$lookup`: `Id` (the id), `Storage` (a `Shelf`: `get`,
 `set`, `remove`, `keys`, `clear` over `ren:<id>:<key>`; reads track the
 root's storage version, so views follow writes from this root, other tabs
 and the other thread; every change dispatches `ren:storage` with `detail`
-`{ id, key, value }` on the host element), `Locks` (a `Locker`: `request(name,
+`{ id, key, value }` on the host element; after the root is disposed it
+still reads and writes the backing, untracked and unheard), `Locks` (a `Locker`: `request(name,
 options?, callback)` and `query()` over `ren:<id>:<name>`), `Runtime`
 (`{ runtime, renderer, element, connection }`), `Props` and `Send`.
 `$name(name)` (or `$name(root, name)`) returns `<id>-<name>` for element ids, so labels and aria

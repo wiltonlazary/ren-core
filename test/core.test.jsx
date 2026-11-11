@@ -1537,6 +1537,26 @@ describe('ren-core without a renderer package', () => {
     assert.deepEqual(inWorker.keys(), onMain.keys());
   });
 
+  it("keeps a disposed root's storage usable: it stores, reads and removes, and throws nothing", () => {
+    const backing = new Memory();
+    /** @type {import('ren-core').Shelf | null} */
+    let held = null;
+    const R = Root({ id: 'gone', renderer: Tree(), storage: backing, locks: null, children: () => ((held = $lookup(Storage)), <p />) });
+    const shelf = /** @type {import('ren-core').Shelf} */ (/** @type {unknown} */ (held));
+    shelf.set('a', '1');
+    $dispose(R);
+    // What an answer that arrives after the root ended does: a request's result kept, a session cleared.
+    assert.doesNotThrow(() => shelf.set('b', '2'));
+    assert.equal(backing.getItem('ren:gone:b'), '2', 'the write is stored');
+    assert.equal(shelf.get('b'), '2');
+    assert.deepEqual(shelf.keys(), ['a', 'b']);
+    assert.deepEqual(shelf.entries(), ['a', '1', 'b', '2']);
+    assert.doesNotThrow(() => shelf.remove('a'));
+    assert.doesNotThrow(() => shelf.receive('c', '3', true));
+    assert.doesNotThrow(() => shelf.clear());
+    assert.equal(backing.length, 0);
+  });
+
   it('gives a worker view no storage when its root has none (storage: null), as direct', { timeout: 30000 }, async t => {
     /** @type {any} */
     let direct;
