@@ -4,7 +4,7 @@
 
 import { describe, it, mock } from 'node:test';
 import assert from 'node:assert/strict';
-import { $parts, $settle, $settled, $sweeper, Storage, Memory, $memo, $auto, $flush, $effect, $catch, $task, $pending, $keys, $defer, Portal, Recover, Root, $signal, $read, $write, $dispose, $cleanup, $lookup, Runtime, Props, Show, Choose, When, For, Times, $owner, $active, $surface, Edit, View, Label, Pending, Sequence } from 'ren-core';
+import { $parts, $roots, $settle, $settled, $sweeper, Storage, Memory, $memo, $auto, $flush, $effect, $catch, $task, $pending, $keys, $defer, Portal, Recover, Root, $signal, $read, $write, $dispose, $cleanup, $lookup, Runtime, Props, Show, Choose, When, For, Times, $owner, $active, $surface, Edit, View, Label, Pending, Sequence } from 'ren-core';
 import { mount } from 'ren-core/host';
 import { serve } from 'ren-core/worker';
 import { connect } from 'ren-core/remote';
@@ -701,6 +701,26 @@ describe('ren-core without a renderer package', () => {
     $dispose(R);
     assert.equal(H.closed, true);
     assert.throws(() => Root({ id: 'bare', storage: null, locks: null, children: <p /> }), /a Root needs a renderer: \$dom\(document\) from ren-dom/);
+  });
+
+  it('leaves a live root as it is when its renderer refuses a second root', () => {
+    // A renderer that serves one root, as the renderer packages' hosts.
+    const H = Tree();
+    const open = H.open;
+    let serving = false;
+    H.open = (/** @type {any} */ host, /** @type {string} */ id) => {
+      if (serving) throw new Error('one root per renderer');
+      serving = true;
+      return /** @type {any} */ (open)(host, id);
+    };
+    const first = Root({ id: 'first', renderer: H, storage: null, locks: null, children: <p>one</p> });
+    assert.throws(() => Root({ id: 'second', renderer: H, storage: null, locks: null, children: <p>two</p> }), /one root per renderer/);
+    assert.equal(H.closed, false, 'the refused root closes nothing of the live one');
+    assert.equal(text(/** @type {any} */ (H.container)), 'one');
+    assert.deepEqual($roots(H), ['first'], 'the refused id is free');
+    $dispose(first);
+    assert.equal(H.closed, true, 'the live root closes its renderer when it ends');
+    assert.deepEqual($roots(H), []);
   });
 
   it('nests a root through the parent host: its nest() by default, refused without one', () => {

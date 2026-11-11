@@ -5,7 +5,9 @@
 // per-document registry of live roots. Each root has its own graph, its own
 // renderer (configured by its own options), its own contexts and, in the
 // worker runtime, its own worker. Nothing is kept in module state but a
-// WeakMap from each document (or document-less renderer) to its live ids.
+// WeakMap from each document (or document-less renderer) to its live ids,
+// one from each renderer to the count of live roots it serves and one from
+// each nested root to its owner.
 
 import { $root as Graph, $dispose, $scope, $cleanup, $owner, $watch, $write, $signal, $writable, $unowned, $untrack, $batch, $with } from 'rrx-core';
 import { checkId } from 'rrx-core/context';
@@ -41,6 +43,9 @@ import { Shelf, Locker, Storage, Locks, Runtime, Send, base } from './context.js
 
 /** Live root ids by document, or by renderer for a root without one. @type {WeakMap<object, Map<string, Root>>} */
 const registry = new WeakMap();
+
+/** How many live roots each renderer serves: one that refuses another root stays open for the root it serves. @type {WeakMap<Host, number>} */
+const serving = new WeakMap();
 
 /** The owner each nested root was rendered in (its place in the parent's views). @type {WeakMap<Root, any>} */
 const nestedIn = new WeakMap();
@@ -150,6 +155,10 @@ function start(spec, element, deliver, fallback) {
   /** @type {(() => void) | null} */
   let unlisten = null;
   let done = false;
+  // A renderer that serves a live root and refuses this one is that root's:
+  // this root's teardown leaves it open.
+  const others = serving.get(renderer) ?? 0;
+  let refused = false;
   const teardown = () => {
     if (done) return;
     done = true;
@@ -157,16 +166,28 @@ function start(spec, element, deliver, fallback) {
     if (connection !== null) connection.close();
     if (owned && port !== null) end(port);
     if (unlisten !== null) unlisten();
-    if (renderer.close) renderer.close();
+    if (!refused && renderer.close) renderer.close();
+    const left = (serving.get(renderer) ?? 1) - 1;
+    if (left > 0) serving.set(renderer, left);
+    else serving.delete(renderer);
     if (shelf !== null) shelf.notify = null;
     if (!nested && host !== null && host.parentNode != null) host.parentNode.removeChild(host);
     release();
   };
   // Created before the view's scope, so its cleanup runs after the view stops.
+  serving.set(renderer, others + 1);
   $cleanup($scope(R, null), teardown);
   try {
     if (shelf !== null && view !== null) unlisten = shelf.listen(view);
-    const container = renderer.open ? renderer.open(host, id) : host;
+    let container = host;
+    if (renderer.open) {
+      try {
+        container = renderer.open(host, id);
+      } catch (error) {
+        refused = others > 0;
+        throw error;
+      }
+    }
     if (container == null) throw new Error('REN: a Root needs a host element or a renderer that opens one');
     if (runtime === 'worker') {
       owned = typeof spec.worker === 'function';
