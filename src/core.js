@@ -300,7 +300,7 @@ function element(R, H, type, props) {
         // the element: its rows need no markers, and clearing it is one call.
         if (children instanceof Lazy && typeof children.component !== 'string') {
           const made = materialize(R, H, children);
-          if (made instanceof List) list(R, H, made, null, node);
+          if (made instanceof List) list(R, H, made, null, node, false);
           else insert(R, H, node, made, null);
         } else insert(R, H, node, children, null);
       } finally {
@@ -719,7 +719,8 @@ function insert(R, H, parent, value, before) {
  * (or between a region's markers) and nothing keeps their list: a reactive
  * text there is one text node, whose markers, should it ever grow structure,
  * land inside that element. A row, a portal, a boundary's content and a
- * mounted view keep their nodes, so their regions keep markers.
+ * mounted view keep their nodes, so their regions keep markers and their
+ * lists start at one.
  * @param {import('rrx-core/core').Graph} R @param {Host} H @param {any} value @param {any[]} out @param {boolean} inside
  */
 function resolve(R, H, value, out, inside) {
@@ -751,7 +752,7 @@ function resolve(R, H, value, out, inside) {
     return;
   }
   if (value instanceof List) {
-    list(R, H, value, out, null);
+    list(R, H, value, out, null, !inside);
     return;
   }
   if (value instanceof Provided) {
@@ -1799,11 +1800,15 @@ function increasing(a) {
  * A list region: rows are the host nodes (or ranges) the $rows or $positions memo
  * keeps; an update reconciles the old order with the new one. A list that
  * is its element's only child owns that element (`owned`): no marker, and
- * clearing it empties the element at once. Otherwise it ends at a marker.
- * @param {import('rrx-core/core').Graph} R @param {Host} H @param {List} spec @param {any[] | null} out @param {any} owned
+ * clearing it empties the element at once. Otherwise it ends at a marker,
+ * and where its nodes are kept (`kept`: a row's, a portal's, a boundary's
+ * content, a mounted view's) it starts at one too, so the first and last
+ * nodes it gave stay its ends whatever rows it shows later.
+ * @param {import('rrx-core/core').Graph} R @param {Host} H @param {List} spec @param {any[] | null} out @param {any} owned @param {boolean} kept
  */
-function list(R, H, spec, out, owned) {
+function list(R, H, spec, out, owned, kept) {
   const end = owned === null ? H.marker() : null;
+  if (kept && owned === null) /** @type {any[]} */ (out).push(H.marker());
   /** The element the first rows go into; later ones go where the list is. */
   const first0 = owned ?? into;
   /** @type {readonly any[]} */
@@ -2259,7 +2264,7 @@ function only(R, H, el, value) {
   if (v instanceof Lazy && typeof v.component !== 'string') {
     v = at(el, () => materialize(R, H, v));
     if (v instanceof List) {
-      list(R, H, v, null, el);
+      list(R, H, v, null, el, false);
       return;
     }
   }
@@ -2302,7 +2307,7 @@ function slot(R, H, anchor, value, only) {
     v = at(parent, () => materialize(R, H, v));
     if (v instanceof List) {
       H.remove(parent, anchor);
-      list(R, H, v, null, parent);
+      list(R, H, v, null, parent, false);
       return;
     }
   }

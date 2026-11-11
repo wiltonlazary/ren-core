@@ -220,6 +220,60 @@ describe('ren-core without a renderer package', () => {
     assert.equal(layer.children.length, 0);
   });
 
+  it('keeps what a list in a row shows later inside that row: moved and removed with it', () => {
+    const H = Tree();
+    const R = Root('main');
+    const a = { items: $signal(R, /** @type {string[]} */ ([])), count: $signal(R, 0) };
+    const b = { items: $signal(R, ['b1']), count: $signal(R, 1) };
+    const groups = $signal(R, [a, b]);
+    const box = H.element('box', null);
+    const dispose = mount(H, () => (
+      <list>
+        <For each={groups}>{group => <For each={group().items}>{item => <row>{item}</row>}</For>}</For>
+        <sep>|</sep>
+        <For each={groups}>{group => <Times count={group().count}>{i => <row>{String(i)}</row>}</Times>}</For>
+      </list>
+    ), box, { root: R });
+    assert.equal(text(box), 'b1|0');
+    // Group a's lists, empty when their rows were built, fill.
+    $write(a.items, ['a1', 'a2']);
+    $write(a.count, 2);
+    assert.equal(text(box), 'a1a2b1|010');
+    $write(groups, [b, a]);
+    assert.equal(text(box), 'b1a1a2|001', 'a reorder moves them with their row');
+    $write(groups, [b]);
+    assert.equal(text(box), 'b1|0', 'a removal takes them');
+    $write(groups, []);
+    assert.equal(find(box, 'row').length, 0);
+    dispose();
+  });
+
+  it('closes a portal that starts with a list with every row the list showed later', () => {
+    const H = Tree();
+    const R = Root('main');
+    const open = $signal(R, true);
+    const empty = $signal(R, /** @type {string[]} */ ([]));
+    const rows = $signal(R, ['a', 'b']);
+    const box = H.element('box', null);
+    const layer = H.layer();
+    const dispose = mount(H, () => (
+      <outer>
+        <Show when={open}>
+          <Portal><For each={empty}>{item => <row>{item}</row>}</For></Portal>
+          <Portal><For each={rows}>{item => <row>{item}</row>}</For><end /></Portal>
+        </Show>
+        <Portal><other /></Portal>
+      </outer>
+    ), box, { root: R });
+    // A list that starts empty fills; one's first row is replaced.
+    $write(empty, ['x', 'y']);
+    $write(rows, ['c', 'b']);
+    assert.equal(text(layer), 'xycb');
+    $write(open, false);
+    assert.deepEqual(layer.children.map(c => c.tag), ['other'], 'no row stays in the layer');
+    dispose();
+  });
+
   it("makes $parts' parts for the element the list goes into (an <a> under <svg>), for parts shown later too", () => {
     const H = Tree();
     const R = Root('main');

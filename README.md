@@ -161,7 +161,10 @@ const dispose = render(() => <App />, document.getElementById('app'), { root });
   rows removed at once, and otherwise only the rows off a longest increasing
   subsequence of old positions move. A list that is its element's only child
   owns the element: no marker, and clearing it is one host call
-  (`textContent = ''` in the DOM, a Range deletion when siblings remain). A
+  (`textContent = ''` in the DOM, a Range deletion when siblings remain). Any
+  other list ends at a marker; one a row, a portal, a boundary's content or
+  a mounted view holds at its top level starts at one too, so the rows it
+  shows later move and leave with their holder. A
   row of one node is that node (no range object), and a `For` child that
   takes one parameter gets no index signal. A row is its own scope (one
   record carrying the row's value and signals), and `For` builds rows with
