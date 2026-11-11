@@ -1203,6 +1203,8 @@ npm test           # declarations, tsc --checkJs --strict, the TypeScript consum
   runtime's key.
 - `test/focus.test.js` covers `$focus` and `focusables`: the first or last
   focusable inside a primitive, a canvas item's or a DOM element's.
+  ren-dom's `scripts/focus-check.mjs` checks the same list in Chrome against
+  where Tab stops.
 - `test/keys.test.jsx` covers `$keys` and `$scrolls` (every key and scroll
   of the root, directly and in worker mode), `$moves` and `$resizes`.
 - `test/style.test.js` covers the portable style: one vocabulary normalized
