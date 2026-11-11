@@ -378,8 +378,10 @@ const dispose = render(() => <App />, document.getElementById('app'), { root });
   true)`: the last), which returns whether one took the focus: a canvas
   item's own `focusFirst()`/`focusLast()` (the items Tab reaches inside it,
   in document order), on the DOM the first or last element Tab reaches below
-  it, not in an inert region (`focusables(element)` in `ren-core/host`, which ren-dom's trap cycles
-  among); a worker's `Handle` has none (false). `ref.getRootNode().activeElement`
+  it: an editable element and a `details`' first `summary` too, nothing
+  disabled (a disabled fieldset's controls among them), of hidden
+  visibility or in an inert region (`focusables(element)` in
+  `ren-core/host`, which ren-dom's trap cycles among); a worker's `Handle` has none (false). `ref.getRootNode().activeElement`
   is the focused element on every renderer (the DOM's document or shadow
   root; a canvas item's Document), for giving the focus back.
 - **Root-wide keys.** `$keys(handler)`, called in a component (or a

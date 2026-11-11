@@ -4,25 +4,67 @@
 // elements Tab reaches below it. A FocusTrap focuses one inside first
 // without a hidden stop of its own.
 
-/** What Tab reaches in the DOM, in document order. */
-const TABBABLE = 'input:not([type=hidden]), textarea, select, button, a[href], [tabindex]';
+/** What Tab reaches in the DOM, in document order: the candidates `focusables` filters. */
+const TABBABLE = 'input:not([type=hidden]), textarea, select, button, a[href], [tabindex], [contenteditable], summary';
+
+/** The controls a disabled fieldset disables. */
+const CONTROLS = new Set(['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON']);
+
+/**
+ * True when a disabled fieldset around a control disables it: any but one
+ * whose first legend holds the control.
+ * @param {any} el a form control
+ */
+function fenced(el) {
+  for (let set = el.parentElement?.closest?.('fieldset[disabled]'); set != null; set = set.parentElement?.closest?.('fieldset[disabled]')) {
+    let legend = set.firstElementChild;
+    while (legend != null && legend.tagName !== 'LEGEND') legend = legend.nextElementSibling;
+    if (legend == null || !legend.contains(el)) return true;
+  }
+  return false;
+}
+
+/**
+ * True when Tab stops at a candidate: by its `tabindex` when it has one;
+ * else a control, a link, an editable element (`contenteditable` not
+ * "false") and a `details`' first `summary` are stops of their own.
+ * @param {any} el
+ */
+function stops(el) {
+  if (el.getAttribute('tabindex') !== null) return el.tabIndex >= 0;
+  if (el.tagName === 'SUMMARY') {
+    const details = el.parentElement;
+    if (details == null || details.tagName !== 'DETAILS') return false;
+    let first = details.firstElementChild;
+    while (first != null && first.tagName !== 'SUMMARY') first = first.nextElementSibling;
+    return first === el;
+  }
+  const editable = el.getAttribute('contenteditable');
+  if (editable !== null && !CONTROLS.has(el.tagName) && el.tagName !== 'A') return editable.toLowerCase() !== 'false';
+  return true;
+}
 
 /**
  * The elements Tab reaches below a DOM element, in document order: not
- * disabled, not taken out of the order (a negative tabindex), not hidden
- * below it (`display: none` or `hidden`) and not in an inert region.
- * ren-dom's focus trap cycles among them.
+ * disabled (by themselves or by a disabled fieldset around them, its first
+ * legend's controls aside), not taken out of the order (a negative
+ * tabindex), not hidden below it (`display: none` or `hidden`), not of
+ * hidden visibility (computed: `hidden` or `collapse`) and not in an inert
+ * region. An editable element and a `details`' first `summary` are among
+ * them. ren-dom's focus trap cycles among them.
  * @param {any} element a DOM element
  * @returns {any[]}
  */
 export function focusables(element) {
   if (element == null || typeof element.querySelectorAll !== 'function') return [];
+  const view = element.ownerDocument?.defaultView;
   /** @param {any} el */
   const shown = el => {
     for (let n = el; n != null && n !== element; n = n.parentElement) if (n.style?.display === 'none' || n.hidden === true) return false;
-    return true;
+    const visibility = typeof view?.getComputedStyle === 'function' ? view.getComputedStyle(el).visibility : '';
+    return visibility !== 'hidden' && visibility !== 'collapse';
   };
-  return [...element.querySelectorAll(TABBABLE)].filter(el => !el.disabled && el.tabIndex >= 0 && shown(el) && el.closest?.('[inert]') == null);
+  return [...element.querySelectorAll(TABBABLE)].filter(el => !el.disabled && !(CONTROLS.has(el.tagName) && fenced(el)) && stops(el) && shown(el) && el.closest?.('[inert]') == null);
 }
 
 /**
