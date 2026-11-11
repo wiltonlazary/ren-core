@@ -248,6 +248,37 @@ describe('ren-core without a renderer package', () => {
     dispose();
   });
 
+  it("removes a list's fallback with what the fallback's own regions and lists showed later", () => {
+    const H = Tree();
+    const R = Root('main');
+    const items = $signal(R, /** @type {string[]} */ ([]));
+    const more = $signal(R, false);
+    const hints = $signal(R, /** @type {string[]} */ ([]));
+    const count = $signal(R, 0);
+    const box = H.element('box', null);
+    const dispose = mount(H, () => (
+      <list>
+        <first>[</first>
+        <For each={items} fallback={[<Show when={more}><more>more</more></Show>, <For each={hints}>{hint => <hint>{hint}</hint>}</For>]}>{item => <row>{item}</row>}</For>
+        <sep>|</sep>
+        <Times count={count} fallback={<Show when={more} fallback={<none>none</none>}><more>some</more></Show>}>{i => <row>{String(i)}</row>}</Times>
+        <last>]</last>
+      </list>
+    ), box, { root: R });
+    assert.equal(text(box), '[|none]');
+    // Each fallback's content changes while it shows.
+    $write(more, true);
+    $write(hints, ['h1', 'h2']);
+    assert.equal(text(box), '[moreh1h2|some]');
+    $write(items, ['a']);
+    $write(count, 2);
+    assert.equal(text(box), '[a|01]', 'the rows replace all of it');
+    $write(items, []);
+    $write(count, 0);
+    assert.equal(text(box), '[moreh1h2|some]', 'built again as it is now');
+    dispose();
+  });
+
   it('closes a portal that starts with a list with every row the list showed later', () => {
     const H = Tree();
     const R = Root('main');

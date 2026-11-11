@@ -1813,7 +1813,7 @@ function list(R, H, spec, out, owned, kept) {
   const first0 = owned ?? into;
   /** @type {readonly any[]} */
   let current = [];
-  /** @type {any[] | null} */
+  /** The shown fallback, from its first node to its last: what its regions and lists show now lies between. @type {Range | null} */
   let fallback = null;
   /** @type {import('rrx-core/core').Owner | null} */
   let fallbackScope = null;
@@ -1846,7 +1846,7 @@ function list(R, H, spec, out, owned, kept) {
       return;
     }
     if (rows.length > 0 && fallback !== null) {
-      for (const n of fallback) if (H.parent(n) === parent) H.remove(parent, n);
+      for (const n of rangeNodes(H, fallback)) if (H.parent(n) === parent) H.remove(parent, n);
       if (fallbackScope !== null) failed = halt(fallbackScope);
       fallback = null;
       fallbackScope = null;
@@ -1864,7 +1864,7 @@ function list(R, H, spec, out, owned, kept) {
       /** @type {any[]} */
       const nodes = [];
       at(parent ?? first0, () => $enter(/** @type {any} */ (fallbackScope), () => resolve(R, H, spec.fallback, nodes, false)));
-      fallback = nodes;
+      fallback = new Range(nodes[0] ?? null, nodes[nodes.length - 1] ?? null, nodes);
       if (initial !== null) for (const n of nodes) initial.push(n);
       else for (const n of nodes) H.insert(parent, n, end);
     }
