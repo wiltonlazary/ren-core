@@ -1,6 +1,7 @@
 // The built-in contexts of an application root. Everything an application
 // root confines derives from its one id: storage keys `ren:<id>:<key>`, lock
-// names `ren:<id>:<name>` and element ids `<id>-<name>`. A root provides
+// names `ren:<id>:<name>` (their leases `ren-lock:<id>:<name>` in the storage
+// backing, where there is no lock manager) and element ids `<id>-<name>`. A root provides
 // these contexts at its base (read-only layers), so application code reads
 // them with `$lookup`, like any context. A nested root starts a new chain: it
 // sees none of its parent's contexts.
@@ -191,16 +192,268 @@ export class Memory {
   }
 }
 
-/** The locks of one root: Web Locks named `ren:<id>:<name>`. */
+/** A request a Lease has not granted yet: its lock, and the one timer it waits on. @typedef {{ name: string, key: string, timer: any }} Ask */
+
+/** @param {string} message */
+function unsupported(message) {
+  const error = new Error(message);
+  error.name = 'NotSupportedError';
+  return error;
+}
+
+/** A name no other tab's Lease has: 64 random bits. */
+function token() {
+  const words = new Uint32Array(2);
+  const crypto = /** @type {any} */ (globalThis).crypto;
+  if (typeof crypto?.getRandomValues === 'function') crypto.getRandomValues(words);
+  else for (let i = 0; i < 2; i++) words[i] = Math.random() * 0x100000000;
+  return words[0].toString(36) + words[1].toString(36);
+}
+
+/**
+ * The locks of one root where there is no lock manager: a lease per lock in
+ * the root's storage backing, shared by the tabs of an origin. A lease is
+ * the item `ren-lock:<id>:<name>` holding `<until> <holder>`: outside the
+ * root's Storage keys (`ren:<id>:`), so no Shelf lists, clears, tracks or
+ * mirrors it.
+ *
+ * A request takes the lock when no other holder has an unexpired lease: it
+ * writes its own, waits `settle` milliseconds for a tab that wrote at the
+ * same moment (the last write stands) and holds the lock if the lease is
+ * still its own; else it looks again every `poll` milliseconds. A lease
+ * lasts `ttl` milliseconds from the moment it is held and is renewed every
+ * third of that while its callback runs, so a holder that vanished (a tab
+ * closed) frees the lock once its lease expires; the callback's end removes
+ * it. Requests of one lock made through one Lease run in turn.
+ *
+ * It excludes as long as a holder's timers run at least once per `ttl` and
+ * the tabs read one clock: a tab frozen for longer while it holds (a
+ * suspended page) loses the lock to another tab while its callback still
+ * runs, and nothing tells it.
+ */
+export class Lease {
+  /** @param {string} id the root's id @param {Backing} backing */
+  constructor(id, backing) {
+    /** The lock names, as a lock manager would hold them. */
+    this.names = `ren:${id}:`;
+    /** The leases' keys in the backing. */
+    this.prefix = `ren-lock:${id}:`;
+    this.backing = backing;
+    /** This Lease among those of other tabs. */
+    this.holder = token();
+    /** How long a lease lasts without a renewal, in milliseconds. */
+    this.ttl = 15000;
+    /** How long a request waits for a lease written at the same moment, in milliseconds. */
+    this.settle = 50;
+    /** How often a request looks again at a lease another holder has, in milliseconds. */
+    this.poll = 100;
+    /** The end of the last request of each lock made here: the next one's turn. @type {Map<string, Promise<void>>} */
+    this.turns = new Map();
+    /** The requests not granted yet. @type {Set<Ask>} */
+    this.asks = new Set();
+    /** The renewal timer of each lease held here, by its key. @type {Map<string, any>} */
+    this.renewals = new Map();
+    this.closed = false;
+  }
+
+  /** The lease kept under `key`, or null. @param {string} key @returns {{ until: number, holder: string } | null} */
+  read(key) {
+    const text = this.backing.getItem(key);
+    if (text === null) return null;
+    const at = text.indexOf(' ');
+    const until = Number(text.slice(0, at));
+    return at > 0 && until === until ? { until, holder: text.slice(at + 1) } : null;
+  }
+
+  /** True while another holder has an unexpired lease under `key`. @param {string} key */
+  taken(key) {
+    const lease = this.read(key);
+    return lease !== null && lease.holder !== this.holder && lease.until > Date.now();
+  }
+
+  /** Writes this holder's lease under `key`, lasting `ttl` from now. @param {string} key */
+  write(key) {
+    this.backing.setItem(key, `${Date.now() + this.ttl} ${this.holder}`);
+  }
+
+  /** Removes the lease under `key` while it is this holder's; a backing that refuses leaves it to expire. @param {string} key */
+  release(key) {
+    try {
+      if (this.read(key)?.holder === this.holder) this.backing.removeItem(key);
+    } catch {
+      // The lease expires by itself.
+    }
+  }
+
+  /**
+   * Requests the lock `name`: see `Locker.request` for what it supports.
+   * @param {string} name @param {any} options @param {(lock: any) => any} callback
+   * @returns {Promise<any>}
+   */
+  request(name, options, callback) {
+    if (typeof callback !== 'function') return Promise.reject(new TypeError('REN: a lock request needs a callback'));
+    const mode = options.mode ?? 'exclusive';
+    if (mode !== 'exclusive' && mode !== 'shared') return Promise.reject(new TypeError(`REN: unknown lock mode "${String(mode)}"`));
+    if (options.steal === true) return Promise.reject(unsupported('REN: a lock held as a lease in storage cannot be stolen (no lock manager)'));
+    const signal = options.signal ?? null;
+    const ifAvailable = options.ifAvailable === true;
+    if (ifAvailable && signal !== null) return Promise.reject(unsupported('REN: a lock request takes ifAvailable or a signal, not both'));
+    if (signal !== null && signal.aborted) return Promise.reject(signal.reason);
+    return this.run(name, ifAvailable, signal, callback);
+  }
+
+  /**
+   * @param {string} name @param {boolean} ifAvailable @param {any} signal @param {(lock: any) => any} callback
+   * @returns {Promise<any>}
+   */
+  async run(name, ifAvailable, signal, callback) {
+    const key = this.prefix + name;
+    const before = this.turns.get(key);
+    // Held or awaited here already: not available.
+    if (ifAvailable && before !== undefined) return callback(null);
+    /** Ends this request's turn. @type {() => void} */
+    let done = () => {};
+    /** @type {Promise<void>} */
+    const ended = new Promise(resolve => (done = resolve));
+    const turn = before === undefined ? ended : before.then(() => ended);
+    this.turns.set(key, turn);
+    /** @type {Ask} */
+    const ask = { name, key, timer: null };
+    this.asks.add(ask);
+    /** @type {(() => void) | null} */
+    let abort = null;
+    /** Rejects when the signal aborts. @type {Promise<never> | null} */
+    const aborted =
+      signal === null
+        ? null
+        : new Promise((_, reject) => {
+            abort = () => reject(signal.reason);
+            signal.addEventListener('abort', abort, { once: true });
+          });
+    // One that aborts once nothing waits on it is not a failure.
+    if (aborted !== null) aborted.catch(() => {});
+    /** @template T @param {Promise<T>} wait @returns {Promise<T>} */
+    const until = wait => (aborted === null ? wait : Promise.race([wait, aborted]));
+    /** A request of a disposed root never settles. @returns {Promise<never>} */
+    const never = () => new Promise(() => {});
+    let leased = false;
+    let held = false;
+    try {
+      if (before !== undefined) await until(before);
+      if (this.closed) await never();
+      for (;;) {
+        // timer: poll, a lease another holder has is looked at again until it is removed or expired (a Backing has no event)
+        while (!ifAvailable && this.taken(key)) await until(new Promise(resolve => (ask.timer = setTimeout(resolve, this.poll))));
+        if (this.taken(key)) break;
+        this.write(key);
+        leased = true;
+        // timer: feature, the settle window: a lease another tab wrote at the same moment shows within it
+        await until(new Promise(resolve => (ask.timer = setTimeout(resolve, this.settle))));
+        if (this.read(key)?.holder === this.holder) {
+          // Still its own: held, its term counted from now.
+          this.write(key);
+          held = true;
+          break;
+        }
+        leased = false;
+        if (ifAvailable) break;
+      }
+      this.asks.delete(ask);
+      if (!held) return await callback(null);
+      // timer: feature, the lease is renewed while it is held, so only a holder that vanished lets it expire
+      const renewal = setInterval(() => {
+        try {
+          if (this.read(key)?.holder === this.holder) this.write(key);
+        } catch {
+          // A renewal the backing refused: the next one, or the lease expires.
+        }
+      }, this.ttl / 3);
+      this.renewals.set(key, renewal);
+      return await callback({ name: this.names + name, mode: 'exclusive' });
+    } finally {
+      if (abort !== null) signal.removeEventListener('abort', abort);
+      clearTimeout(ask.timer);
+      this.asks.delete(ask);
+      if (held) {
+        clearInterval(this.renewals.get(key));
+        this.renewals.delete(key);
+      }
+      if (leased) this.release(key);
+      if (this.turns.get(key) === turn) this.turns.delete(key);
+      done();
+    }
+  }
+
+  /** The locks with an unexpired lease in the backing (any tab's), and those requested here and not granted yet. @returns {{ held: string[], pending: string[] }} */
+  query() {
+    const backing = this.backing;
+    const prefix = this.prefix;
+    const now = Date.now();
+    /** @type {string[]} */
+    const held = [];
+    for (let i = 0; i < backing.length; i++) {
+      const key = backing.key(i);
+      if (key === null || !key.startsWith(prefix)) continue;
+      const lease = this.read(key);
+      if (lease !== null && lease.until > now) held.push(key.slice(prefix.length));
+    }
+    return { held: held.sort(), pending: [...this.asks].map(ask => ask.name) };
+  }
+
+  /**
+   * Ends with the root: the leases held here are removed (their callbacks
+   * run on, no longer excluding), every timer is cleared, and the requests
+   * not granted yet never settle, as a closed page's.
+   */
+  close() {
+    this.closed = true;
+    for (const ask of this.asks) {
+      clearTimeout(ask.timer);
+      this.release(ask.key);
+    }
+    this.asks.clear();
+    for (const [key, renewal] of this.renewals) {
+      clearInterval(renewal);
+      this.release(key);
+    }
+    this.renewals.clear();
+  }
+}
+
+/**
+ * The locks of one root: Web Locks named `ren:<id>:<name>`, held by the
+ * root's lock manager, or, where there is none, by its `lease` (leases in
+ * the root's storage backing, which an application root in the direct
+ * runtime sets). With neither, there are no locks: `request` throws.
+ */
 export class Locker {
   /** @param {string} id @param {Manager | null} manager */
   constructor(id, manager) {
     this.prefix = `ren:${id}:`;
     this.manager = manager;
+    /** The locks without a manager, null for none: set by the application root, cleared when it ends. @type {Lease | null} */
+    this.lease = null;
   }
 
   /**
-   * Requests the lock `name` of this root, as `navigator.locks.request`.
+   * Requests the lock `name` of this root, as `navigator.locks.request`:
+   * the callback runs holding it, and the promise settles as the callback
+   * does, the lock released either way.
+   *
+   * With a lock manager, the request is the manager's. Without one, the
+   * `lease` holds the lock across the tabs that share the storage backing:
+   * the callback gets `{ name, mode: 'exclusive' }`; `ifAvailable: true`
+   * calls it with null when the lock is held or awaited; a `signal` that
+   * aborts while the request waits rejects it with the signal's reason (a
+   * granted request runs on); `mode: 'shared'` is granted as exclusive (one
+   * holder at a time, so two shared requests wait for each other); `steal`
+   * rejects with a `NotSupportedError`, as `ifAvailable` with a `signal`
+   * does. What the backing refuses (a full or closed storage) rejects the
+   * request. Once the root is disposed its held leases are removed and its
+   * waiting requests never settle.
+   *
+   * With no manager and no lease (a root with no storage, a worker's root,
+   * a Locker made by hand), it throws: there are no locks.
    * @template T
    * @param {string} name
    * @param {any} options Web Locks options, or the callback
@@ -209,15 +462,26 @@ export class Locker {
    */
   request(name, options, callback) {
     const manager = this.manager;
-    if (manager === null) throw new Error('REN: this root has no lock manager (Web Locks)');
+    if (manager === null) {
+      const lease = this.lease;
+      if (lease === null) throw new Error('REN: this root has no lock manager (Web Locks)');
+      if (typeof options === 'function') return lease.request(name, {}, options);
+      return lease.request(name, options ?? {}, /** @type {any} */ (callback));
+    }
     if (typeof options === 'function') return manager.request(this.prefix + name, {}, options);
     return manager.request(this.prefix + name, options ?? {}, /** @type {any} */ (callback));
   }
 
-  /** The names of this root's held and pending locks. @returns {Promise<{ held: string[], pending: string[] }>} */
+  /**
+   * The names of this root's held and pending locks. From a lease: the
+   * locks any tab holds, and the requests made here that still wait
+   * (another tab's waiting requests are not known).
+   * @returns {Promise<{ held: string[], pending: string[] }>}
+   */
   async query() {
     const manager = this.manager;
-    if (manager === null || typeof manager.query !== 'function') return { held: [], pending: [] };
+    if (manager === null) return this.lease === null ? { held: [], pending: [] } : this.lease.query();
+    if (typeof manager.query !== 'function') return { held: [], pending: [] };
     const state = await manager.query();
     const prefix = this.prefix;
     /** @param {{ name?: string }[] | undefined} list */

@@ -1019,7 +1019,7 @@ $dispose(main);                  // ends it, its nested roots, their renderers a
 | `renderer` | a renderer package's Host: `$dom(document, options)` or `$shadow(options)` (ren-dom), `$skia(kit, options)` (ren-skia), `$three(THREE, options)` (ren-three), `$tree(options)` (ren-json). Required at top level; a nested root defaults to its parent host's `nest()` (the DOM renderers: light DOM; ren-json: `$tree`). One renderer per root |
 | `target` | top level: the element the root's host element (`<div data-ren-root="<id>">`) is appended to; none for a document-less root |
 | `runtime`, `worker` | `'direct'` (default), or `'worker'` with `worker`: a port, or `id => port` (a worker it makes is terminated with the root) |
-| `storage`, `locks` | the Web Storage and Web Locks behind the root's views (the window's `localStorage` and `navigator.locks` by default; null for none) |
+| `storage`, `locks` | the Web Storage and Web Locks behind the root's views (the window's `localStorage` and `navigator.locks` by default; null for none). Without a lock manager, a direct root's locks are leases in its storage; without storage too, it has no locks |
 | `props`, `onMessage` | the parent-to-child value (`$lookup(Props)`) and the child-to-parent channel (`$lookup(Send)(data)`) |
 | `provide` | `[[$context, value], …]` passed explicitly into the root, as providers around its view (direct runtime) |
 | `auto`, `tag`, `connect` | as `mount`; the host element's tag; worker runtime connection options |
@@ -1031,7 +1031,8 @@ root's storage version, so views follow writes from this root, other tabs
 and the other thread; every change dispatches `ren:storage` with `detail`
 `{ id, key, value }` on the host element; after the root is disposed it
 still reads and writes the backing, untracked and unheard), `Locks` (a `Locker`: `request(name,
-options?, callback)` and `query()` over `ren:<id>:<name>`), `Runtime`
+options?, callback)` and `query()` over `ren:<id>:<name>`; see Locks
+below), `Runtime`
 (`{ runtime, renderer, element, connection }`), `Props` and `Send`.
 `$name(name)` (or `$name(root, name)`) returns `<id>-<name>` for element ids, so labels and aria
 references never collide across roots for a name without `-` (with one,
@@ -1042,6 +1043,49 @@ A plain `mount`/`render` root gets `Id` only.
 A worker view of a root with `storage: null` reads no `Storage` either.
 The main thread's storage is the one that counts: writes to one key made on
 both threads at once end, on both, with the value the main thread applied last.
+
+**Locks.** `$lookup(Locks).request(name, options?, callback)` runs the
+callback holding the root's lock `name` and returns a promise of what it
+returns, the lock released when it settles, as `navigator.locks.request`
+does. With a lock manager (`locker.manager`, a secure page's
+`navigator.locks`) the request is the manager's, under `ren:<id>:<name>`.
+Without one (`locker.manager === null`: a page served over plain http by an
+address on the local network), a direct root's `Locker` holds the lock as a
+lease in the root's storage backing (`locker.lease`), across the tabs that
+share that storage:
+
+- A lease is the item `ren-lock:<id>:<name>`, `<until> <holder>`: no key of
+  the root's `Storage`, so `keys`, `clear`, its readers, `ren:storage` and a
+  worker's mirror never see it.
+- A request takes the lock when no other holder has an unexpired lease: it
+  writes its own, waits `settle` (50 ms) for a tab that wrote at the same
+  moment (the last write stands) and holds the lock if the lease is still
+  its own; else it looks again every `poll` (100 ms). A lease lasts `ttl`
+  (15 s) and is renewed every third of that while the callback runs, so a
+  tab closed holding the lock frees it once its lease expires. One root's
+  requests of a lock run in turn. The three waits are fields of
+  `locker.lease`, in milliseconds.
+- The callback gets `{ name, mode: 'exclusive' }`. `ifAvailable: true`
+  calls it with null when the lock is held or awaited. A `signal` that
+  aborts while the request waits rejects it with the signal's reason.
+  `mode: 'shared'` is granted as exclusive: one holder at a time. `steal`,
+  and `ifAvailable` with a `signal`, reject with a `NotSupportedError`.
+  What the storage refuses (it is full) rejects the request.
+- `query()` gives the locks any tab holds and the requests of this root
+  that wait; another tab's waiting requests are not known.
+- It excludes while a holder's timers run at least once per `ttl`: a tab
+  suspended for longer while it holds loses the lock to another tab, its
+  callback still running, and nothing tells it. A lock manager has no such
+  limit, and is used wherever there is one.
+- `$dispose(root)` removes the leases the root holds (a callback still
+  running runs on, excluding no more) and clears its timers; its requests
+  that wait never settle, as a closed page's.
+
+With neither a lock manager nor storage there are no locks, and `request`
+throws `REN: this root has no lock manager (Web Locks)`: a root with
+`storage: null`, a worker's root (its storage is a mirror; it uses the
+worker's own `navigator.locks`), a `Locker` made by hand (`new Locker(id,
+null)`).
 
 **Renderer options.** Each renderer is configured by its own options and
 serves one root; two roots never share one, so their themes, fonts, scale
@@ -1090,9 +1134,9 @@ from `ren-core/host`. A worker's Handle has neither: there each gives null
   the media preferences' `change` listeners, removed with the last reader.
   Root-wide keys (`$keys`) and scrolls (`$scrolls`) listen on the document
   (scrolls in capture, and on a shadow root too) while a view hears them.
-- Storage and locks: keys and lock names carry the `ren:<id>:` prefix; a root
-  sees, lists and clears only its own keys, and follows only their `storage`
-  events.
+- Storage and locks: keys and lock names carry the `ren:<id>:` prefix (a
+  lock's lease in storage `ren-lock:<id>:`); a root sees, lists and clears
+  only its own keys, and follows only their `storage` events.
 - Dispose (`$dispose(root)`, or the parent's scope stopping for `<Root>`):
   the view stops, the container is emptied (a shadow root's children and its
   adopted sheet removed; a Skia page and overlay unlinked, its canvas removed
@@ -1135,7 +1179,8 @@ root's keys cross back as `[STORE, pairs]`: no request and reply, and
 nothing on the view path. `props` cross as `[PROPS, value]` and
 `$lookup(Send)` posts to `onMessage`; both carry structured-clone data only.
 Locks in the worker use its own `navigator.locks` (`serve`'s `locks`
-option), under the same names.
+option), under the same names; without one a worker's root has no locks
+(no lease: its storage is a mirror).
 
 ## Tests
 
@@ -1175,6 +1220,9 @@ npm test           # declarations, tsc --checkJs --strict, the TypeScript consum
 - `test/timers.test.js` guards the timer calls in the sources, tests and
   scripts: each says why it is one (a `timer: <kind>` comment), and no sleep
   helper stands in for the event that reports work done.
+- `test/locks.test.js` covers a root's locks: its lock manager's, and
+  without one the leases in its storage (two roots over one backing as two
+  tabs: exclusion, expiry, renewal, `ifAvailable`, abort, dispose).
 - `test/exports.test.js` locks the public contract: every entry's export
   names and kinds must equal `test/exports.lock.json`.
 - `npm test` runs the `.jsx` suites twice: with the automatic runtime

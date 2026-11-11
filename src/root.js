@@ -14,7 +14,7 @@ import { checkId } from 'rrx-core/context';
 import { mount, building, placing, $active, $surface, read, eager, forget, replaced } from './core.js';
 import { connect } from './remote.js';
 import { nested } from './nested.js';
-import { Shelf, Locker, Storage, Locks, Runtime, Send, base } from './context.js';
+import { Shelf, Locker, Lease, Storage, Locks, Runtime, Send, base } from './context.js';
 
 /** @typedef {import('rrx-core/core').Graph} Root */
 /** @typedef {import('./core.js').Host} Host */
@@ -29,7 +29,7 @@ import { Shelf, Locker, Storage, Locks, Runtime, Send, base } from './context.js
  * @property {'direct' | 'worker'=} runtime `direct` (default) runs the graph here; `worker` runs it in `worker`.
  * @property {(Port | ((id: string) => Port))=} worker The worker runtime's endpoint (serving `serve` with a root of the same id), or a function making it; a worker it made is terminated with the root.
  * @property {import('./context.js').Backing | null=} storage The Web Storage behind `$lookup(Storage)`; the window's localStorage by default, null for none.
- * @property {import('./context.js').Manager | null=} locks The lock manager behind `$lookup(Locks)`; `navigator.locks` by default.
+ * @property {import('./context.js').Manager | null=} locks The lock manager behind `$lookup(Locks)`; `navigator.locks` by default. Where there is none (null, or a page that is not a secure context), a direct root's locks are leases in its `storage` backing; with no storage either, it has no locks.
  * @property {any=} props The value the root reads with `$lookup(Props)`. Nested: an accessor or node is tracked in the parent, and the child follows it. Worker runtime: structured-clone data.
  * @property {((data: any) => void)=} onMessage Receives `$lookup(Send)(data)` from the root; nested, it runs in the parent's context, in a batch.
  * @property {[import('rrx-core/context').Context<any>, any][]=} provide Direct runtime: contexts passed explicitly, as providers around the view (a nested root inherits none).
@@ -129,6 +129,11 @@ function start(spec, element, deliver, fallback) {
     };
   const nav = view?.navigator ?? /** @type {any} */ (globalThis).navigator;
   const locks = spec.locks !== undefined ? spec.locks : (nav?.locks ?? null);
+  const locker = new Locker(id, locks);
+  // Without a lock manager, the locks are leases in the storage backing; a
+  // worker's root has its own Locker, over the worker's lock manager alone.
+  const lease = locks === null && backing != null && runtime === 'direct' ? new Lease(id, backing) : null;
+  locker.lease = lease;
   const nested = deliver !== null;
   const props = $unowned(R, () => $writable($signal(R, /** @type {any} */ (spec.props))));
   const onMessage = spec.onMessage;
@@ -139,7 +144,7 @@ function start(spec, element, deliver, fallback) {
     R,
     [
       [Storage, shelf],
-      [Locks, new Locker(id, locks)],
+      [Locks, locker],
       [Runtime, place],
       [Send, send],
     ],
@@ -171,6 +176,10 @@ function start(spec, element, deliver, fallback) {
     if (left > 0) serving.set(renderer, left);
     else serving.delete(renderer);
     if (shelf !== null) shelf.notify = null;
+    if (lease !== null) {
+      lease.close();
+      locker.lease = null;
+    }
     if (!nested && host !== null && host.parentNode != null) host.parentNode.removeChild(host);
     release();
   };
