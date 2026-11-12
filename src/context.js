@@ -201,6 +201,16 @@ function unsupported(message) {
   return error;
 }
 
+/** What a request rejects with once its lease is another holder's, as a stolen Web Lock's does: an `AbortError`. */
+function stolen() {
+  const message = 'REN: the lock was lost: its lease in storage is no longer this holder\'s';
+  const Exception = /** @type {any} */ (globalThis).DOMException;
+  if (typeof Exception === 'function') return new Exception(message, 'AbortError');
+  const error = new Error(message);
+  error.name = 'AbortError';
+  return error;
+}
+
 /** A name no other tab's Lease has: 64 random bits. */
 function token() {
   const words = new Uint32Array(2);
@@ -231,7 +241,9 @@ function token() {
  * It excludes as long as a holder's timers run at least once per `ttl` and
  * the tabs read one clock: a tab frozen for longer while it holds (a
  * suspended page) loses the lock to another tab while its callback still
- * runs, and nothing tells it. A storage has no compare-and-set, so a look
+ * runs; its next renewal that finds the lease no longer its own rejects the
+ * request with an `AbortError` (the callback runs on, its result dropped). A
+ * storage has no compare-and-set, so a look
  * and the write after it are two steps: two tabs both hold when one's write
  * lands more than `settle` after its look found the lock free (a tab stalled
  * between the two), or when a tab's settle outlasts `ttl` twice in a row and
@@ -379,16 +391,31 @@ export class Lease {
       }
       this.asks.delete(ask);
       if (!held) return await callback(null);
+      /** Rejects the request once the lease is lost. @type {(error: any) => void} */
+      let lose = () => {};
+      /** @type {Promise<never>} */
+      const lost = new Promise((_, reject) => (lose = reject));
       // timer: feature, the lease is renewed while it is held, so only a holder that vanished lets it expire
       const renewal = setInterval(() => {
+        /** @type {{ until: number, holder: string } | null} */
+        let lease;
         try {
-          if (this.read(key)?.holder === this.holder) this.write(key);
+          lease = this.read(key);
+          if (lease !== null && lease.holder === this.holder) return void this.write(key);
         } catch {
           // A renewal the backing refused: the next one, or the lease expires.
+          return;
         }
+        // No longer its own (it expired and another holder took it, or it was
+        // removed): the lock is lost. The request rejects now, as a stolen
+        // Web Lock's does; the callback runs on, and what it settles with later
+        // is dropped.
+        clearInterval(renewal);
+        lose(stolen());
       }, this.ttl / 3);
       this.renewals.set(key, renewal);
-      return await callback({ name: this.names + name, mode: 'exclusive' });
+      const lock = { name: this.names + name, mode: 'exclusive' };
+      return await Promise.race([(async () => callback(lock))(), lost]);
     } finally {
       if (abort !== null) signal.removeEventListener('abort', abort);
       clearTimeout(ask.timer);
@@ -472,7 +499,10 @@ export class Locker {
    * holder at a time, so two shared requests wait for each other); `steal`
    * rejects with a `NotSupportedError`, as `ifAvailable` with a `signal`
    * does. What the backing refuses (a full or closed storage) rejects the
-   * request. Once the root is disposed its held leases are removed and its
+   * request. A holder whose lease is lost (it was not renewed in time and
+   * another tab took the lock, or it was removed) has its request rejected
+   * with an `AbortError` at its next renewal, as a stolen Web Lock's is: the
+   * callback runs on, excluding no more, and what it settles with is dropped. Once the root is disposed its held leases are removed and its
    * waiting requests never settle.
    *
    * With no manager and no lease (a root with no storage, a worker's root,

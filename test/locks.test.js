@@ -447,6 +447,76 @@ describe('a root without a lock manager', () => {
     assert.equal(backing.length, 0);
   });
 
+  it('rejects a holder whose lease another tab took with an AbortError: its callback runs on, and removes nothing', async t => {
+    const backing = new Memory();
+    const [a, b] = [tab(t, backing, { ttl: 90 }), tab(t, backing, { ttl: 90 })];
+    /** @type {string[]} */
+    const seen = [];
+    const [holdA, holdB] = [gate(), gate()];
+    // a's renewals come late (a suspended tab): none lands while `late`.
+    let late = false;
+    const setItem = backing.setItem.bind(backing);
+    backing.setItem = (key, value) => {
+      if (late && value.endsWith(` ${a.lease.holder}`)) throw new Error('late');
+      setItem(key, value);
+    };
+    /** How a's request settled. @type {{ value?: any, error?: any } | null} */
+    let settled = null;
+    let settlements = 0;
+    a.locker
+      .request('refresh', async () => {
+        seen.push('a in');
+        await holdA.promise;
+        seen.push('a out');
+        throw new Error('what the callback ends with, after the lock was lost');
+      })
+      .then(
+        value => (settlements++, (settled = { value })),
+        error => (settlements++, (settled = { error })),
+      );
+    await reached(() => seen.length === 1);
+    late = true;
+    // b takes the lock once a's lease has expired.
+    const two = b.locker.request('refresh', async () => {
+      seen.push('b in');
+      await holdB.promise;
+      seen.push('b out');
+      return 'b';
+    });
+    await reached(() => seen.includes('b in'));
+    const taken = Date.now();
+    // a is told at its next renewal, a third of the ttl away at most.
+    await reached(() => settled !== null, 500);
+    const told = Date.now() - taken;
+    late = false;
+    const error = /** @type {{ error?: any }} */ (/** @type {unknown} */ (settled)).error;
+    assert.equal(error?.name, 'AbortError');
+    if (typeof DOMException === 'function') assert.ok(error instanceof DOMException);
+    assert.match(error.message, /the lock was lost/);
+    assert.ok(told <= 90, `told within the ttl of b taking it (${told} ms; a renewal comes every third of it)`);
+    assert.deepEqual(seen, ['a in', 'b in'], "a's callback still runs, b holds");
+    assert.equal(a.lease.renewals.size, 0, "a's renewal stopped");
+    assert.equal(/** @type {string} */ (backing.getItem(KEY)).split(' ')[1], b.lease.holder, "the lease is b's");
+    // a's callback ends later, throwing: nothing settles twice, nothing is unhandled, b's lease stays.
+    /** @type {any[]} */
+    const unhandled = [];
+    const listen = (/** @type {any} */ reason) => unhandled.push(reason);
+    process.on('unhandledRejection', listen);
+    t.after(() => process.off('unhandledRejection', listen));
+    holdA.resolve();
+    await reached(() => seen.includes('a out'));
+    // timer: turn, an unhandled rejection is reported only once the job that made it ended
+    await new Promise(resolve => setImmediate(resolve));
+    assert.deepEqual(unhandled, []);
+    assert.equal(settlements, 1);
+    assert.equal(/** @type {string} */ (backing.getItem(KEY)).split(' ')[1], b.lease.holder, "a's end did not remove b's lease");
+    holdB.resolve();
+    assert.equal(await two, 'b');
+    assert.equal(backing.length, 0);
+    // A holder whose lease is its own all along is never told so.
+    assert.equal(await a.locker.request('refresh', async () => 'held'), 'held');
+  });
+
   it('grants shared as exclusive, and refuses what a lease cannot do', async t => {
     const backing = new Memory();
     const { locker } = tab(t, backing);

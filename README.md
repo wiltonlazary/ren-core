@@ -1077,7 +1077,10 @@ share that storage:
   that wait; another tab's waiting requests are not known.
 - It excludes while a holder's timers run at least once per `ttl`: a tab
   suspended for longer while it holds loses the lock to another tab, its
-  callback still running, and nothing tells it. A storage has no
+  callback still running. It is told at its next renewal: a renewal that
+  finds the lease no longer its own (another tab's, or removed) rejects the
+  request with an `AbortError`, as a stolen Web Lock's is; the callback runs
+  on, excluding no more, and what it settles with is dropped. A storage has no
   compare-and-set, so a look and the write after it are two steps: two tabs
   both hold when one's write lands more than `settle` after its look found
   the lock free (a tab stalled between the two), or when a tab's settle
