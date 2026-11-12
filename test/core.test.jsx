@@ -69,6 +69,38 @@ describe('ren-core without a renderer package', () => {
     dispose();
   });
 
+  it('binds a ref that writes state in a Times row as in a For row: the first rows, a row added later', () => {
+    const H = Tree();
+    const R = Root('main');
+    /** A component whose ref writes a signal of its own, and shows what it holds. */
+    const Anchored = () => {
+      const anchor = $signal($active(), /** @type {any} */ (null));
+      const node = $signal($active(), /** @type {any} */ (null));
+      return (
+        <p ref={(/** @type {any} */ n) => $write(anchor, n)}>
+          <b ref={node} />
+          {() => ($read(anchor) !== null && $read(node) !== null ? 'set' : 'unset')}
+        </p>
+      );
+    };
+    const count = $signal(R, 1);
+    const built = $signal(R, 0);
+    const box = H.element('box', null);
+    const dispose = mount(H, () => (
+      <list>
+        <Times count={count}>{() => <Anchored />}</Times>
+        <Times count={2}>{i => ($write(built, i + 1), <Anchored />)}</Times>
+      </list>
+    ), box, { root: R });
+    $flush(R);
+    assert.equal(text(box), 'setsetset');
+    assert.equal($read(built), 2, 'a row may write as it builds');
+    $write(count, 2);
+    $flush(R);
+    assert.equal(text(box), 'setsetsetset', 'a row added later binds its own too');
+    dispose();
+  });
+
   it('gives the parts a child shows, reactively: For rows, a Show showing nothing skipped, accessors and nested arrays opened', () => {
     const H = Tree();
     const R = Root('main');
